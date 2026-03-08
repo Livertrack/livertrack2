@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic'
   'use client'
-import { useEffect, useState } from 'react'
+export const dynamic = 'force-dynamic'
+  import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import type { Livreur, Produit, Stock } from '@/lib/types'
