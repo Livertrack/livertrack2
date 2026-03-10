@@ -49,7 +49,7 @@ export default function HistoriquePage() {
       'Livreur': (v.livreur as any)?.nom,
       'Client': v.client_nom,
       'Boutique': (v.boutique as any)?.nom,
-      'Montant (DA)': v.montant_total,
+      'Montant (€)': v.montant_total,
     }))
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -69,7 +69,7 @@ export default function HistoriquePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
           <div>
             <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, margin: 0 }}>Historique des ventes</h1>
-            <p style={{ color: '#8B95A8', marginTop: 6 }}>{filtered.length} vente(s) — Total : <span style={{ color: '#F59E0B', fontWeight: 700 }}>{totalFiltered.toLocaleString()} DA</span></p>
+            <p style={{ color: '#8B95A8', marginTop: 6 }}>{filtered.length} vente(s) — Total : <span style={{ color: '#F59E0B', fontWeight: 700 }}>{totalFiltered.toLocaleString()}€</span></p>
           </div>
           <button onClick={exportExcel} style={{ background: '#10B98122', border: '1px solid #10B98144', color: '#10B981', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
             ↓ Exporter Excel
@@ -123,14 +123,14 @@ export default function HistoriquePage() {
                           {(v.boutique as any)?.nom}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B', whiteSpace: 'nowrap' }}>{v.montant_total.toLocaleString()} DA</td>
+                      <td style={{ padding: '10px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B', whiteSpace: 'nowrap' }}>{v.montant_total.toLocaleString()}€</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr style={{ background: '#0A0F1A', borderTop: '2px solid #1E2535' }}>
                     <td colSpan={5} style={{ padding: '12px 14px', color: '#8B95A8', fontSize: 12, fontWeight: 600 }}>TOTAL ({filtered.length} ventes)</td>
-                    <td style={{ padding: '12px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 800, color: '#F59E0B', fontSize: 16 }}>{totalFiltered.toLocaleString()} DA</td>
+                    <td style={{ padding: '12px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 800, color: '#F59E0B', fontSize: 16 }}>{totalFiltered.toLocaleString()}€</td>
                   </tr>
                 </tfoot>
               </table>
