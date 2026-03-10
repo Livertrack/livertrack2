@@ -15,6 +15,8 @@ export default function HistoriquePage() {
   const [filterBoutique, setFilterBoutique] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -41,6 +43,17 @@ export default function HistoriquePage() {
 
   const totalFiltered = filtered.reduce((s, v) => s + v.montant_total, 0)
 
+  async function deleteVente(id: string) {
+    setDeleting(true)
+    // Supprimer les lignes de vente d'abord
+    await supabase.from('vente_lignes').delete().eq('vente_id', id)
+    // Puis la vente
+    await supabase.from('ventes').delete().eq('id', id)
+    setVentes(prev => prev.filter(v => v.id !== id))
+    setConfirmDelete(null)
+    setDeleting(false)
+  }
+
   async function exportExcel() {
     const XLSX = await import('xlsx')
     const rows = filtered.map(v => ({
@@ -62,6 +75,8 @@ export default function HistoriquePage() {
 
   if (loading) return <div style={{ display: 'flex' }}><Sidebar /><main style={{ marginLeft: 240, flex: 1, padding: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#8B95A8' }}>Chargement...</div></main></div>
 
+  const venteASupprimer = ventes.find(v => v.id === confirmDelete)
+
   return (
     <div style={{ display: 'flex' }}>
       <Sidebar />
@@ -69,7 +84,7 @@ export default function HistoriquePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
           <div>
             <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, margin: 0 }}>Historique des ventes</h1>
-            <p style={{ color: '#8B95A8', marginTop: 6 }}>{filtered.length} vente(s) — Total : <span style={{ color: '#F59E0B', fontWeight: 700 }}>{totalFiltered.toLocaleString()}€</span></p>
+            <p style={{ color: '#8B95A8', marginTop: 6 }}>{filtered.length} vente(s) — Total : <span style={{ color: '#F59E0B', fontWeight: 700 }}>{totalFiltered.toLocaleString()} €</span></p>
           </div>
           <button onClick={exportExcel} style={{ background: '#10B98122', border: '1px solid #10B98144', color: '#10B981', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
             ↓ Exporter Excel
@@ -86,8 +101,8 @@ export default function HistoriquePage() {
             <option value="">Toutes les boutiques</option>
             {boutiques.map(b => <option key={b.id} value={b.id}>{b.nom}</option>)}
           </select>
-          <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} style={inputStyle} placeholder="Du" />
-          <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} style={inputStyle} placeholder="Au" />
+          <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} style={inputStyle} />
+          <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} style={inputStyle} />
           {(filterLivreur || filterBoutique || filterDateFrom || filterDateTo) && (
             <button onClick={() => { setFilterLivreur(''); setFilterBoutique(''); setFilterDateFrom(''); setFilterDateTo('') }} style={{ background: 'transparent', border: '1px solid #1E2535', color: '#8B95A8', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12 }}>
               ✕ Effacer filtres
@@ -106,7 +121,7 @@ export default function HistoriquePage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#0A0F1A', color: '#8B95A8', borderBottom: '1px solid #1E2535' }}>
-                    {['Date', 'Heure', 'Livreur', 'Client', 'Boutique', 'Montant'].map(h => (
+                    {['Date', 'Heure', 'Livreur', 'Client', 'Boutique', 'Montant', ''].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '12px 14px', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -123,20 +138,53 @@ export default function HistoriquePage() {
                           {(v.boutique as any)?.nom}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B', whiteSpace: 'nowrap' }}>{v.montant_total.toLocaleString()}€</td>
+                      <td style={{ padding: '10px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B', whiteSpace: 'nowrap' }}>{v.montant_total.toLocaleString()} €</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <button onClick={() => setConfirmDelete(v.id)}
+                          style={{ background: '#EF444411', border: '1px solid #EF444433', color: '#EF4444', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12 }}>
+                          🗑 Annuler
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr style={{ background: '#0A0F1A', borderTop: '2px solid #1E2535' }}>
-                    <td colSpan={5} style={{ padding: '12px 14px', color: '#8B95A8', fontSize: 12, fontWeight: 600 }}>TOTAL ({filtered.length} ventes)</td>
-                    <td style={{ padding: '12px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 800, color: '#F59E0B', fontSize: 16 }}>{totalFiltered.toLocaleString()}€</td>
+                    <td colSpan={6} style={{ padding: '12px 14px', color: '#8B95A8', fontSize: 12, fontWeight: 600 }}>TOTAL ({filtered.length} ventes)</td>
+                    <td style={{ padding: '12px 14px', fontFamily: "'Syne', sans-serif", fontWeight: 800, color: '#F59E0B', fontSize: 16 }}>{totalFiltered.toLocaleString()} €</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           )}
         </div>
+
+        {/* Modal confirmation suppression */}
+        {confirmDelete && (
+          <div style={{ position: 'fixed', inset: 0, background: '#000000CC', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+            <div style={{ background: '#161B27', border: '1px solid #EF444444', borderRadius: 20, padding: 32, width: '100%', maxWidth: 420, textAlign: 'center' }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
+              <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, margin: '0 0 8px', fontSize: 20 }}>Annuler cette vente ?</h2>
+              <p style={{ color: '#8B95A8', fontSize: 14, marginBottom: 8 }}>
+                {(venteASupprimer?.livreur as any)?.nom} — {venteASupprimer?.client_nom}
+              </p>
+              <p style={{ color: '#F59E0B', fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 18, marginBottom: 24 }}>
+                {venteASupprimer?.montant_total.toLocaleString()} €
+              </p>
+              <p style={{ color: '#EF4444', fontSize: 12, marginBottom: 24 }}>Cette action est irréversible.</p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button onClick={() => setConfirmDelete(null)}
+                  style={{ flex: 1, background: '#1E2535', border: 'none', borderRadius: 12, padding: 14, color: '#F1F5F9', cursor: 'pointer', fontWeight: 600 }}>
+                  Annuler
+                </button>
+                <button onClick={() => deleteVente(confirmDelete)} disabled={deleting}
+                  style={{ flex: 1, background: 'linear-gradient(135deg, #EF4444, #B91C1C)', border: 'none', borderRadius: 12, padding: 14, color: '#fff', cursor: 'pointer', fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>
+                  {deleting ? 'Suppression...' : '🗑 Confirmer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
