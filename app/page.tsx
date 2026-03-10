@@ -119,7 +119,7 @@ export default function Dashboard() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B', fontSize: 14 }}>
-                    {totalLivreur(l.id).toLocaleString()} DA
+                    {totalLivreur(l.id).toLocaleString()} €
                   </div>
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 2 }}>
                     {boutiques.map(b => (argentParLivreur[l.id]?.[b.id] || 0) > 0 && (
@@ -160,7 +160,7 @@ export default function Dashboard() {
                           {(v.boutique as any)?.nom}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 12px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B' }}>{v.montant_total.toLocaleString()} DA</td>
+                      <td style={{ padding: '10px 12px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B' }}>{v.montant_total.toLocaleString()} €</td>
                     </tr>
                   ))}
                 </tbody>
