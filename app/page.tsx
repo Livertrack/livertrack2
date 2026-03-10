@@ -80,10 +80,10 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
-          <StatCard label="Total du jour" value={`${totalVentes.toLocaleString()} DA`} sub="Toutes boutiques" accent="#F59E0B" />
+          <StatCard label="Total du jour" value={`${totalVentes.toLocaleString()} €`} sub="Toutes boutiques" accent="#F59E0B" />
           <StatCard label="Nb ventes" value={ventes.length} sub={`${livreurs.length} livreurs actifs`} accent="#10B981" />
-          <StatCard label="Boutique top" value={topBoutique?.nom?.split(' ')[1] || '—'} sub={`${(argentParBoutique[topBoutique?.id] || 0).toLocaleString()} DA`} accent="#6366F1" />
-          <StatCard label="Livreur top" value={topLivreur?.nom?.split(' ')[0] || '—'} sub={`${totalLivreur(topLivreur?.id || '').toLocaleString()} DA`} accent="#EF4444" />
+          <StatCard label="Boutique top" value={topBoutique?.nom?.split(' ')[1] || '—'} sub={`${(argentParBoutique[topBoutique?.id] || 0).toLocaleString()} €`} accent="#6366F1" />
+          <StatCard label="Livreur top" value={topLivreur?.nom?.split(' ')[0] || '—'} sub={`${totalLivreur(topLivreur?.id || '').toLocaleString()} €`} accent="#EF4444" />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32 }}>
@@ -100,7 +100,7 @@ export default function Dashboard() {
                     <div style={{ height: '100%', background: b.couleur, borderRadius: 3, width: totalVentes > 0 ? `${((argentParBoutique[b.id] || 0) / totalVentes) * 100}%` : '0%', transition: 'width 0.5s' }} />
                   </div>
                   <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, color: b.couleur, minWidth: 90, textAlign: 'right', fontSize: 14 }}>
-                    {(argentParBoutique[b.id] || 0).toLocaleString()} DA
+                    {(argentParBoutique[b.id] || 0).toLocaleString()} €
                   </span>
                 </div>
               </div>
