@@ -198,7 +198,7 @@ export default function VentesPage() {
                 
                 {/* En-têtes */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 32px', gap: 8, marginBottom: 6 }}>
-                  {['Produit', 'Quantité', 'Prix (DA)', ''].map(h => (
+                  {['Produit', 'Quantité', 'Prix (€)', ''].map(h => (
                     <div key={h} style={{ fontSize: 10, color: '#4B5563', textTransform: 'uppercase' }}>{h}</div>
                   ))}
                 </div>
@@ -230,7 +230,7 @@ export default function VentesPage() {
               {/* Total */}
               <div style={{ background: '#F59E0B11', border: '1px solid #F59E0B33', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#8B95A8', fontSize: 14 }}>Montant total</span>
-                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 22, color: '#F59E0B' }}>{montantTotal().toLocaleString()} DA</span>
+                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 22, color: '#F59E0B' }}>{montantTotal().toLocaleString()}€</span>
               </div>
 
               <button onClick={submitVente} disabled={saving} style={{ width: '100%', background: 'linear-gradient(135deg, #F59E0B, #EF4444)', border: 'none', borderRadius: 12, padding: 14, color: '#0D1117', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>
