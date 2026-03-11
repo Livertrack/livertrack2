@@ -269,56 +269,74 @@ export default function JournalPage() {
 
           {/* Contenu déplié */}
           {stockOpen && (
-            <div style={{ borderTop: '1px solid #1E2535', padding: '20px' }}>
-              {/* Onglets initial / ajustement */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                <button onClick={() => setStockMode('initial')} style={{ padding: '7px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, background: stockMode === 'initial' ? '#F59E0B22' : '#0D1117', border: `2px solid ${stockMode === 'initial' ? '#F59E0B' : '#1E2535'}`, color: stockMode === 'initial' ? '#F59E0B' : '#8B95A8' }}>
-                  Définir stock initial
-                </button>
-                <button onClick={() => setStockMode('ajust')} style={{ padding: '7px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, background: stockMode === 'ajust' ? '#6366F122' : '#0D1117', border: `2px solid ${stockMode === 'ajust' ? '#6366F1' : '#1E2535'}`, color: stockMode === 'ajust' ? '#6366F1' : '#8B95A8' }}>
-                  ± Réajuster
-                </button>
+            <div style={{ borderTop: '1px solid #1E2535' }}>
+              <div style={{ padding: '12px 16px 0', display: 'flex', gap: 8 }}>
+                <button onClick={() => setStockMode('initial')} style={{ padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, background: stockMode === 'initial' ? '#F59E0B22' : '#0D1117', border: `2px solid ${stockMode === 'initial' ? '#F59E0B' : '#1E2535'}`, color: stockMode === 'initial' ? '#F59E0B' : '#8B95A8' }}>Stock initial</button>
+                <button onClick={() => setStockMode('ajust')} style={{ padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, background: stockMode === 'ajust' ? '#6366F122' : '#0D1117', border: `2px solid ${stockMode === 'ajust' ? '#6366F1' : '#1E2535'}`, color: stockMode === 'ajust' ? '#6366F1' : '#8B95A8' }}>± Réajuster</button>
               </div>
-
-              <p style={{ fontSize: 12, color: '#4B5563', marginBottom: 16 }}>
-                {stockMode === 'initial' ? 'Définissez les quantités de départ pour ce livreur aujourd\'hui.' : 'Entrez un nombre positif (+) pour réappro ou négatif (−) pour une perte.'}
-              </p>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
-                {produits.map(p => {
-                  const s = getStock(p.id)
-                  const val = stockAjust[p.id] || ''
-                  const delta = parseInt(val) || 0
-                  const color = stockMode === 'ajust' ? (delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : '#4B5563') : '#F59E0B'
-                  return (
-                    <div key={p.id} style={{ background: '#0D1117', borderRadius: 12, padding: '12px 14px', border: `1px solid ${val !== '' ? color + '55' : '#1E2535'}` }}>
-                      <div style={{ fontSize: 11, color: '#8B95A8', marginBottom: 4 }}>{p.nom}</div>
-                      {stockMode === 'initial' && s && (
-                        <div style={{ fontSize: 10, color: '#4B5563', marginBottom: 6 }}>actuel : {s.quantite_actuelle}</div>
-                      )}
-                      {stockMode === 'ajust' && s && val !== '' && delta !== 0 && (
-                        <div style={{ fontSize: 10, color: '#4B5563', marginBottom: 6 }}>{s.quantite_actuelle} → <span style={{ color }}>{Math.max(0, s.quantite_actuelle + delta)}</span></div>
-                      )}
-                      <input type="number" value={val} onChange={e => setStockAjust(prev => ({ ...prev, [p.id]: e.target.value }))}
-                        placeholder={stockMode === 'ajust' ? "+5 ou -3" : "0"}
-                        style={{ width: '100%', textAlign: 'center', background: '#0D1117', border: `1px solid ${val !== '' && val !== '0' ? color + '66' : '#1E2535'}`, borderRadius: 8, color, fontSize: 18, fontWeight: 700, outline: 'none', fontFamily: "'Syne', sans-serif", padding: '8px 4px', boxSizing: 'border-box' as const }} />
-                    </div>
-                  )
-                })}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#0A0F1A', borderBottom: '1px solid #1E2535', borderTop: '1px solid #1E2535' }}>
+                      {produits.map((p, idx) => {
+                        const s = getStock(p.id)
+                        return (
+                          <th key={p.id} style={{ padding: '8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 75 }}>
+                            {p.nom}
+                            {s && <div style={{ fontSize: 10, color: '#4B5563', fontWeight: 400, marginTop: 2 }}>stock: {s.quantite_actuelle}</div>}
+                          </th>
+                        )
+                      })}
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 200 }}>Commentaire</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {produits.map((p, idx) => {
+                        const val = stockAjust[p.id] || ''
+                        const delta = parseInt(val) || 0
+                        const s = getStock(p.id)
+                        const color = stockMode === 'ajust' ? (delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : '#4B5563') : (delta > 0 ? '#F59E0B' : '#4B5563')
+                        return (
+                          <td key={p.id} style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'top' }}>
+                            {stockMode === 'ajust' && s && delta !== 0 && (
+                              <div style={{ fontSize: 10, color: '#4B5563', marginBottom: 3 }}>{s.quantite_actuelle}→<span style={{ color }}>{Math.max(0, s.quantite_actuelle + delta)}</span></div>
+                            )}
+                            <input
+                              type="number"
+                              value={val}
+                              onChange={e => setStockAjust(prev => ({ ...prev, [p.id]: e.target.value }))}
+                              onKeyDown={e => {
+                                if (e.key === 'ArrowRight' || e.key === 'Tab') {
+                                  e.preventDefault()
+                                  const next = document.querySelector(`input[data-stock="${idx + 1}"]`) as HTMLInputElement
+                                  if (next) next.focus()
+                                }
+                                if (e.key === 'ArrowLeft') {
+                                  e.preventDefault()
+                                  const prev2 = document.querySelector(`input[data-stock="${idx - 1}"]`) as HTMLInputElement
+                                  if (prev2) prev2.focus()
+                                }
+                              }}
+                              data-stock={idx}
+                              placeholder="0"
+                              style={{ width: 65, textAlign: 'center', background: delta !== 0 ? color + '22' : '#0D1117', border: `1px solid ${delta !== 0 ? color + '66' : '#1E2535'}`, color: delta !== 0 ? color : '#4B5563', fontSize: 14, fontWeight: 700, padding: '7px 4px', outline: 'none', borderRadius: 8, fontFamily: "'Syne', sans-serif" }}
+                            />
+                          </td>
+                        )
+                      })}
+                      <td style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
+                        <input value={stockNote} onChange={e => setStockNote(e.target.value)} placeholder="Commentaire..." style={{ width: '100%', background: '#0D1117', border: '1px solid #1E2535', borderRadius: 8, padding: '7px 10px', color: '#F1F5F9', fontSize: 13, outline: 'none', fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box' as const }} />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <input
-                  value={stockNote}
-                  onChange={e => setStockNote(e.target.value)}
-                  placeholder="Commentaire (ex: retour client, livraison reçue...)"
-                  style={{ flex: 1, minWidth: 260, background: '#0D1117', border: '1px solid #1E2535', borderRadius: 10, padding: '11px 14px', color: '#F1F5F9', fontSize: 13, outline: 'none', fontFamily: "'DM Sans', sans-serif" }}
-                />
-                <button onClick={saveStock} disabled={savingStock} style={{ background: stockMode === 'initial' ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : 'linear-gradient(135deg, #6366F1, #10B981)', border: 'none', borderRadius: 12, padding: '11px 24px', color: '#fff', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid #1E2535' }}>
+                <button onClick={saveStock} disabled={savingStock} style={{ background: stockMode === 'initial' ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : 'linear-gradient(135deg, #6366F1, #10B981)', border: 'none', borderRadius: 12, padding: '10px 24px', color: '#fff', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
                   {savingStock ? 'Sauvegarde...' : stockMode === 'initial' ? '✓ Valider stock initial' : '✓ Appliquer réajustement'}
                 </button>
               </div>
-
             </div>
           )}
         </div>
