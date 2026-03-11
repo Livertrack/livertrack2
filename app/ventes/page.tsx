@@ -34,6 +34,17 @@ export default function JournalPage() {
   const [livreurActif, setLivreurActif] = useState<string>('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [lignes, setLignes] = useState<Ligne[]>([])
+  const [ventesEnregistrees, setVentesEnregistrees] = useState<any[]>([])
+  const [fraisEnregistres, setFraisEnregistres] = useState<any[]>([])
+
+  async function loadVentesJour(livId: string, d: string) {
+    const [{ data: v }, { data: f }] = await Promise.all([
+      supabase.from('ventes').select('*, boutique:boutiques(*)').eq('livreur_id', livId).eq('date_vente', d).order('created_at', { ascending: false }),
+      supabase.from('frais').select('*').eq('livreur_id', livId).eq('date_frais', d).order('created_at', { ascending: false }),
+    ])
+    setVentesEnregistrees(v || [])
+    setFraisEnregistres(f || [])
+  }
 
   async function loadStocks(livId: string, prods: Produit[], d: string) {
     const { data } = await supabase.from('stocks').select('*').eq('livreur_id', livId).eq('date_depart', d)
@@ -54,7 +65,11 @@ export default function JournalPage() {
       const defaultB = b?.[0]?.id || ''
       setLivreurActif(defaultL)
       setLignes([emptyVente(defaultB, p || []), emptyVente(defaultB, p || []), emptyVente(defaultB, p || [])])
-      if (defaultL) await loadStocks(defaultL, p || [], new Date().toISOString().split('T')[0])
+      const today = new Date().toISOString().split('T')[0]
+      if (defaultL) {
+        await loadStocks(defaultL, p || [], today)
+        await loadVentesJour(defaultL, today)
+      }
       setLoading(false)
     }
     load()
@@ -62,7 +77,7 @@ export default function JournalPage() {
 
   async function switchLivreur(id: string) {
     setLivreurActif(id)
-    await loadStocks(id, produits, date)
+    await Promise.all([loadStocks(id, produits, date), loadVentesJour(id, date)])
   }
 
   function getStock(produitId: string) {
@@ -142,6 +157,7 @@ export default function JournalPage() {
       }
     }
 
+    await loadVentesJour(livreurActif, date)
     setSaving(false)
     setSuccess(`${lignesValides.length} entrée(s) enregistrée(s) !`)
     setTimeout(() => setSuccess(''), 3000)
@@ -386,6 +402,61 @@ export default function JournalPage() {
             {saving ? 'Enregistrement...' : `✓ Enregistrer ${lignesValides.length > 0 ? `(${lignesValides.length})` : ''}`}
           </button>
         </div>
+
+        {/* RÉCAP DES VENTES DÉJÀ ENREGISTRÉES */}
+        {(ventesEnregistrees.length > 0 || fraisEnregistres.length > 0) && (
+          <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, padding: 20, marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#F1F5F9', fontFamily: "'Syne', sans-serif" }}>
+                ✓ Déjà enregistré aujourd'hui — {livreurs.find(l => l.id === livreurActif)?.nom}
+              </span>
+              <span style={{ fontSize: 12, color: '#8B95A8' }}>{ventesEnregistrees.length} vente(s) · {fraisEnregistres.length} frais</span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #1E2535' }}>
+                    {['Heure', 'Type', 'Libellé', 'Boutique', 'Montant'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#8B95A8', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ventesEnregistrees.map(v => (
+                    <tr key={v.id} style={{ borderBottom: '1px solid #1E253522' }}>
+                      <td style={{ padding: '7px 10px', color: '#4B5563' }}>{new Date(v.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td style={{ padding: '7px 10px' }}><span style={{ background: '#10B98122', color: '#10B981', border: '1px solid #10B98133', borderRadius: 5, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>Vente</span></td>
+                      <td style={{ padding: '7px 10px', color: '#CBD5E1' }}>{v.client_nom}</td>
+                      <td style={{ padding: '7px 10px' }}>
+                        <span style={{ background: (v.boutique as any)?.couleur + '22', color: (v.boutique as any)?.couleur, border: `1px solid ${(v.boutique as any)?.couleur}33`, borderRadius: 5, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
+                          {(v.boutique as any)?.nom}
+                        </span>
+                      </td>
+                      <td style={{ padding: '7px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B' }}>{v.montant_total.toLocaleString()} €</td>
+                    </tr>
+                  ))}
+                  {fraisEnregistres.map(f => (
+                    <tr key={f.id} style={{ borderBottom: '1px solid #1E253522' }}>
+                      <td style={{ padding: '7px 10px', color: '#4B5563' }}>{new Date(f.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td style={{ padding: '7px 10px' }}><span style={{ background: '#EF444422', color: '#EF4444', border: '1px solid #EF444433', borderRadius: 5, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>Frais</span></td>
+                      <td style={{ padding: '7px 10px', color: '#CBD5E1' }}>{f.description}</td>
+                      <td style={{ padding: '7px 10px', color: '#4B5563' }}>—</td>
+                      <td style={{ padding: '7px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#EF4444' }}>−{f.montant.toLocaleString()} €</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid #1E2535', background: '#0A0F1A' }}>
+                    <td colSpan={4} style={{ padding: '8px 10px', color: '#8B95A8', fontSize: 11 }}>TOTAL ENREGISTRÉ</td>
+                    <td style={{ padding: '8px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 15, color: '#F59E0B' }}>
+                      {(ventesEnregistrees.reduce((s, v) => s + v.montant_total, 0) - fraisEnregistres.reduce((s, f) => s + f.montant, 0)).toLocaleString()} €
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
