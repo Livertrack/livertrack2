@@ -1,120 +1,118 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
-import type { Livreur, Produit, Boutique, Stock } from '@/lib/types'
+import type { Livreur, Produit, Boutique } from '@/lib/types'
+
+type Ligne = {
+  client: string
+  boutique_id: string
+  produit_id: string
+  quantite: string
+  prix: string
+}
+
+function emptyLigne(boutique_id: string): Ligne {
+  return { client: '', boutique_id, produit_id: '', quantite: '', prix: '' }
+}
 
 export default function VentesPage() {
   const supabase = createClient()
   const [livreurs, setLivreurs] = useState<Livreur[]>([])
   const [produits, setProduits] = useState<Produit[]>([])
   const [boutiques, setBoutiques] = useState<Boutique[]>([])
-  const [stocks, setStocks] = useState<Stock[]>([])
-  const [livreurActif, setLivreurActif] = useState<string | null>(null)
-  const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [success, setSuccess] = useState('')
 
-  const today = new Date().toISOString().split('T')[0]
-  const [formDate, setFormDate] = useState(today)
-  const [formClient, setFormClient] = useState('')
-  const [formBoutique, setFormBoutique] = useState('')
+  const [livreurActif, setLivreurActif] = useState<string>('')
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [lignes, setLignes] = useState<Ligne[]>([])
 
-  // Chaque ligne : { produitId, quantite, prix }
-  const [lignes, setLignes] = useState<{ produitId: string; quantite: string; prix: string }[]>([])
+  const tableRef = useRef<HTMLTableElement>(null)
 
   useEffect(() => {
     async function load() {
-      const [{ data: l }, { data: p }, { data: b }, { data: s }] = await Promise.all([
+      const [{ data: l }, { data: p }, { data: b }] = await Promise.all([
         supabase.from('livreurs').select('*').eq('actif', true).order('nom'),
         supabase.from('produits').select('*').eq('actif', true).order('nom'),
         supabase.from('boutiques').select('*').eq('actif', true),
-        supabase.from('stocks').select('*').eq('date_depart', today),
       ])
       setLivreurs(l || [])
       setProduits(p || [])
       setBoutiques(b || [])
-      setStocks(s || [])
-      if (b && b.length > 0) setFormBoutique(b[0].id)
+      if (l && l.length > 0) setLivreurActif(l[0].id)
+      if (b && b.length > 0) {
+        setLignes([emptyLigne(b[0].id), emptyLigne(b[0].id), emptyLigne(b[0].id)])
+      }
       setLoading(false)
     }
     load()
   }, [])
 
-  function openModal(livreurId: string) {
-    setLivreurActif(livreurId)
-    setFormClient('')
-    setFormDate(today)
-    setLignes([{ produitId: '', quantite: '', prix: '' }])
-    setShowModal(true)
-  }
-
-  function addLigne() {
-    setLignes(prev => [...prev, { produitId: '', quantite: '', prix: '' }])
+  function updateLigne(index: number, field: keyof Ligne, value: string) {
+    setLignes(prev => {
+      const next = prev.map((l, i) => i === index ? { ...l, [field]: value } : l)
+      // Ajouter une ligne vide automatiquement si on est sur la dernière
+      const defaultBoutique = boutiques[0]?.id || ''
+      if (index === prev.length - 1 && value !== '') {
+        next.push(emptyLigne(defaultBoutique))
+      }
+      return next
+    })
   }
 
   function removeLigne(index: number) {
-    setLignes(prev => prev.filter((_, i) => i !== index))
+    setLignes(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev)
   }
 
-  function updateLigne(index: number, field: string, value: string) {
-    setLignes(prev => prev.map((l, i) => i === index ? { ...l, [field]: value } : l))
+  // Navigation clavier : Entrée = cellule suivante
+  function handleKeyDown(e: React.KeyboardEvent, rowIndex: number, colIndex: number, totalCols: number) {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      const cells = tableRef.current?.querySelectorAll('input, select')
+      if (!cells) return
+      const currentIndex = Array.from(cells).findIndex(c => c === e.target)
+      const next = cells[currentIndex + 1] as HTMLElement
+      if (next) next.focus()
+    }
   }
 
-  function montantTotal() {
-    return lignes.reduce((s, l) => {
-      const q = parseFloat(l.quantite) || 0
-      const p = parseFloat(l.prix) || 0
-      return s + q * p
-    }, 0)
-  }
+  const lignesValides = lignes.filter(l => l.client.trim() && l.produit_id && parseFloat(l.quantite) > 0 && parseFloat(l.prix) > 0)
+  const total = lignesValides.reduce((s, l) => s + parseFloat(l.quantite) * parseFloat(l.prix), 0)
 
-  async function submitVente() {
-    if (!livreurActif || !formClient || !formBoutique) return
-    const lignesValides = lignes.filter(l => l.produitId && parseFloat(l.quantite) > 0 && parseFloat(l.prix) > 0)
-    if (lignesValides.length === 0) return
+  async function saveAll() {
+    if (!livreurActif || lignesValides.length === 0) return
     setSaving(true)
 
-    const total = montantTotal()
+    for (const ligne of lignesValides) {
+      const montant = parseFloat(ligne.quantite) * parseFloat(ligne.prix)
+      const { data: vente } = await supabase.from('ventes').insert({
+        livreur_id: livreurActif,
+        boutique_id: ligne.boutique_id,
+        client_nom: ligne.client,
+        date_vente: date,
+        montant_total: montant,
+      }).select().single()
 
-    const { data: vente, error: venteErr } = await supabase.from('ventes').insert({
-      livreur_id: livreurActif,
-      boutique_id: formBoutique,
-      client_nom: formClient,
-      date_vente: formDate,
-      montant_total: total,
-    }).select().single()
-
-    if (venteErr || !vente) { setSaving(false); return }
-
-    const lignesInsert = lignesValides.map(l => ({
-      vente_id: vente.id,
-      produit_id: l.produitId,
-      quantite: parseInt(l.quantite),
-      prix_unitaire: parseFloat(l.prix),
-    }))
-    await supabase.from('vente_lignes').insert(lignesInsert)
-
-    // Mettre à jour les stocks
-    for (const l of lignesValides) {
-      const qty = parseInt(l.quantite) || 0
-      const stock = stocks.find(s => s.livreur_id === livreurActif && s.produit_id === l.produitId)
-      if (stock) {
-        const newQty = Math.max(0, stock.quantite_actuelle - qty)
-        await supabase.from('stocks').update({ quantite_actuelle: newQty }).eq('id', stock.id)
-        setStocks(prev => prev.map(s => s.id === stock.id ? { ...s, quantite_actuelle: newQty } : s))
+      if (vente) {
+        await supabase.from('vente_lignes').insert({
+          vente_id: vente.id,
+          produit_id: ligne.produit_id,
+          quantite: parseInt(ligne.quantite),
+          prix_unitaire: parseFloat(ligne.prix),
+        })
       }
     }
 
     setSaving(false)
-    setSuccess(true)
-    setShowModal(false)
-    setTimeout(() => setSuccess(false), 3000)
+    setSuccess(`${lignesValides.length} vente(s) enregistrée(s) !`)
+    setTimeout(() => setSuccess(''), 3000)
+    setLignes([emptyLigne(boutiques[0]?.id || ''), emptyLigne(boutiques[0]?.id || ''), emptyLigne(boutiques[0]?.id || '')])
   }
 
-  const inputStyle = { width: '100%', background: '#0D1117', border: '1px solid #1E2535', borderRadius: 10, padding: '10px 14px', color: '#F1F5F9', fontSize: 14, boxSizing: 'border-box' as const }
+  const cellStyle: React.CSSProperties = { background: '#0D1117', border: '1px solid #1E2535', color: '#F1F5F9', fontSize: 13, padding: '8px 10px', outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: "'DM Sans', sans-serif" }
 
   if (loading) return <div style={{ display: 'flex' }}><Sidebar /><main style={{ marginLeft: 240, flex: 1, padding: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#8B95A8' }}>Chargement...</div></main></div>
 
@@ -122,123 +120,125 @@ export default function VentesPage() {
     <div style={{ display: 'flex' }}>
       <Sidebar />
       <main style={{ marginLeft: 240, flex: 1, padding: 32, minHeight: '100vh' }}>
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, margin: 0 }}>Saisie des ventes</h1>
-          <p style={{ color: '#8B95A8', marginTop: 6 }}>Sélectionnez un livreur pour enregistrer une vente</p>
+
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, margin: 0 }}>Saisie rapide des ventes</h1>
+          <p style={{ color: '#8B95A8', marginTop: 6 }}>Remplissez ligne par ligne — appuyez sur Entrée pour passer à la cellule suivante</p>
         </div>
 
         {success && (
           <div style={{ background: '#10B98122', border: '1px solid #10B98155', borderRadius: 12, padding: '14px 20px', color: '#10B981', marginBottom: 24, fontSize: 14 }}>
-            ✓ Vente enregistrée avec succès !
+            ✓ {success}
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-          {livreurs.map(l => (
-            <button key={l.id} onClick={() => openModal(l.id)} style={{
-              background: '#161B27', border: '2px solid #1E2535', borderRadius: 16,
-              padding: '20px 16px', cursor: 'pointer', color: '#F1F5F9', textAlign: 'left',
-            }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = '#F59E0B')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '#1E2535')}
-            >
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#1E2535', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#F59E0B', marginBottom: 12 }}>
-                {l.nom.split(' ').map((n: string) => n[0]).join('')}
-              </div>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 15 }}>{l.nom}</div>
-              <div style={{ color: '#F59E0B', fontWeight: 700, fontSize: 13, marginTop: 8 }}>+ Nouvelle vente</div>
-            </button>
-          ))}
-        </div>
-
-        {showModal && (
-          <div style={{ position: 'fixed', inset: 0, background: '#000000CC', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
-            onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-            <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 20, padding: 32, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <div>
-                  <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, margin: 0, fontSize: 20 }}>Nouvelle vente</h2>
-                  <div style={{ color: '#F59E0B', fontSize: 13, marginTop: 4 }}>{livreurs.find(l => l.id === livreurActif)?.nom}</div>
-                </div>
-                <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8B95A8', fontSize: 20 }}>✕</button>
-              </div>
-
-              {/* Date et client */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label style={{ fontSize: 11, color: '#8B95A8', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Date</label>
-                  <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: '#8B95A8', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Client</label>
-                  <input type="text" value={formClient} onChange={e => setFormClient(e.target.value)} placeholder="Nom client" style={inputStyle} />
-                </div>
-              </div>
-
-              {/* Boutique */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 11, color: '#8B95A8', display: 'block', marginBottom: 8, textTransform: 'uppercase' }}>Boutique vendeuse</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {boutiques.map(b => (
-                    <button key={b.id} onClick={() => setFormBoutique(b.id)} style={{
-                      flex: 1, padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
-                      background: formBoutique === b.id ? b.couleur + '22' : '#0D1117',
-                      border: `2px solid ${formBoutique === b.id ? b.couleur : '#1E2535'}`,
-                      color: formBoutique === b.id ? b.couleur : '#8B95A8',
-                      fontSize: 12, fontWeight: formBoutique === b.id ? 700 : 400,
-                    }}>{b.nom}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Lignes de produits */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 11, color: '#8B95A8', display: 'block', marginBottom: 10, textTransform: 'uppercase' }}>Produits vendus</label>
-                
-                {/* En-têtes */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 32px', gap: 8, marginBottom: 6 }}>
-                  {['Produit', 'Quantité', 'Prix (€)', ''].map(h => (
-                    <div key={h} style={{ fontSize: 10, color: '#4B5563', textTransform: 'uppercase' }}>{h}</div>
-                  ))}
-                </div>
-
-                {lignes.map((ligne, index) => (
-                  <div key={index} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 32px', gap: 8, marginBottom: 8 }}>
-                    <select value={ligne.produitId} onChange={e => updateLigne(index, 'produitId', e.target.value)}
-                      style={{ ...inputStyle, padding: '10px 10px' }}>
-                      <option value="">-- Produit --</option>
-                      {produits.map(p => (
-                        <option key={p.id} value={p.id}>{p.nom}</option>
-                      ))}
-                    </select>
-                    <input type="number" min="1" placeholder="Qté" value={ligne.quantite}
-                      onChange={e => updateLigne(index, 'quantite', e.target.value)}
-                      style={inputStyle} />
-                    <input type="number" min="0" placeholder="Prix" value={ligne.prix}
-                      onChange={e => updateLigne(index, 'prix', e.target.value)}
-                      style={inputStyle} />
-                    <button onClick={() => removeLigne(index)} style={{ background: '#EF444422', border: '1px solid #EF444444', borderRadius: 8, cursor: 'pointer', color: '#EF4444', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                  </div>
+        {/* Sélection livreur + date */}
+        <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, padding: 20, marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <label style={{ fontSize: 11, color: '#8B95A8', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Livreur</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {livreurs.map(l => (
+                  <button key={l.id} onClick={() => setLivreurActif(l.id)} style={{
+                    padding: '8px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600,
+                    background: livreurActif === l.id ? '#F59E0B22' : '#0D1117',
+                    border: `2px solid ${livreurActif === l.id ? '#F59E0B' : '#1E2535'}`,
+                    color: livreurActif === l.id ? '#F59E0B' : '#8B95A8',
+                    transition: 'all 0.15s',
+                  }}>{l.nom}</button>
                 ))}
-
-                <button onClick={addLigne} style={{ width: '100%', background: '#1E2535', border: '1px dashed #374151', borderRadius: 10, padding: '10px', color: '#8B95A8', cursor: 'pointer', fontSize: 13, marginTop: 4 }}>
-                  + Ajouter un produit
-                </button>
               </div>
-
-              {/* Total */}
-              <div style={{ background: '#F59E0B11', border: '1px solid #F59E0B33', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#8B95A8', fontSize: 14 }}>Montant total</span>
-                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 22, color: '#F59E0B' }}>{montantTotal().toLocaleString()}€</span>
-              </div>
-
-              <button onClick={submitVente} disabled={saving} style={{ width: '100%', background: 'linear-gradient(135deg, #F59E0B, #EF4444)', border: 'none', borderRadius: 12, padding: 14, color: '#0D1117', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>
-                {saving ? 'Enregistrement...' : '✓ Enregistrer la vente'}
-              </button>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#8B95A8', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                style={{ background: '#0D1117', border: '1px solid #1E2535', borderRadius: 10, padding: '8px 12px', color: '#F1F5F9', fontSize: 14, outline: 'none' }} />
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Tableau saisie */}
+        <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, overflow: 'hidden', marginBottom: 20 }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table ref={tableRef} style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#0A0F1A' }}>
+                  {['#', 'Client', 'Boutique', 'Produit', 'Qté', 'Prix (€)', 'Total', ''].map(h => (
+                    <th key={h} style={{ padding: '12px 10px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid #1E2535' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lignes.map((ligne, i) => {
+                  const ligneTotal = parseFloat(ligne.quantite || '0') * parseFloat(ligne.prix || '0')
+                  const isValide = ligne.client.trim() && ligne.produit_id && parseFloat(ligne.quantite) > 0 && parseFloat(ligne.prix) > 0
+                  return (
+                    <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isValide ? '#10B98108' : 'transparent' }}>
+                      <td style={{ padding: '6px 10px', color: '#4B5563', fontSize: 12, width: 30 }}>{i + 1}</td>
+                      <td style={{ padding: '4px 4px' }}>
+                        <input value={ligne.client} onChange={e => updateLigne(i, 'client', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, i, 0, 5)}
+                          placeholder="Nom client" style={{ ...cellStyle, minWidth: 130 }} />
+                      </td>
+                      <td style={{ padding: '4px 4px' }}>
+                        <select value={ligne.boutique_id} onChange={e => updateLigne(i, 'boutique_id', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, i, 1, 5)}
+                          style={{ ...cellStyle, minWidth: 100, cursor: 'pointer' }}>
+                          {boutiques.map(b => <option key={b.id} value={b.id}>{b.nom}</option>)}
+                        </select>
+                      </td>
+                      <td style={{ padding: '4px 4px' }}>
+                        <select value={ligne.produit_id} onChange={e => updateLigne(i, 'produit_id', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, i, 2, 5)}
+                          style={{ ...cellStyle, minWidth: 130, cursor: 'pointer' }}>
+                          <option value="">-- Produit --</option>
+                          {produits.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
+                        </select>
+                      </td>
+                      <td style={{ padding: '4px 4px' }}>
+                        <input type="number" min="1" value={ligne.quantite} onChange={e => updateLigne(i, 'quantite', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, i, 3, 5)}
+                          placeholder="0" style={{ ...cellStyle, width: 60, textAlign: 'center' }} />
+                      </td>
+                      <td style={{ padding: '4px 4px' }}>
+                        <input type="number" min="0" step="0.01" value={ligne.prix} onChange={e => updateLigne(i, 'prix', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, i, 4, 5)}
+                          placeholder="0.00" style={{ ...cellStyle, width: 80, textAlign: 'right' }} />
+                      </td>
+                      <td style={{ padding: '6px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: ligneTotal > 0 ? '#F59E0B' : '#1E2535', whiteSpace: 'nowrap', minWidth: 70 }}>
+                        {ligneTotal > 0 ? `${ligneTotal.toLocaleString()} €` : '—'}
+                      </td>
+                      <td style={{ padding: '4px 6px' }}>
+                        <button onClick={() => removeLigne(i)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4B5563', fontSize: 14, padding: '4px 8px' }}>✕</button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Ajouter ligne */}
+          <div style={{ padding: '10px 16px', borderTop: '1px solid #1E2535' }}>
+            <button onClick={() => setLignes(prev => [...prev, emptyLigne(boutiques[0]?.id || '')])}
+              style={{ background: 'none', border: '1px dashed #374151', borderRadius: 8, padding: '7px 16px', color: '#8B95A8', cursor: 'pointer', fontSize: 13 }}>
+              + Ajouter une ligne
+            </button>
+          </div>
+        </div>
+
+        {/* Footer total + bouton */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, padding: '16px 24px' }}>
+          <div>
+            <span style={{ color: '#8B95A8', fontSize: 14 }}>{lignesValides.length} vente(s) valide(s) — Total : </span>
+            <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, color: '#F59E0B' }}>{total.toLocaleString()} €</span>
+          </div>
+          <button onClick={saveAll} disabled={saving || lignesValides.length === 0}
+            style={{ background: lignesValides.length > 0 ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : '#1E2535', border: 'none', borderRadius: 12, padding: '12px 28px', color: lignesValides.length > 0 ? '#0D1117' : '#4B5563', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, cursor: lignesValides.length > 0 ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
+            {saving ? 'Enregistrement...' : `✓ Enregistrer ${lignesValides.length > 0 ? `(${lignesValides.length})` : ''}`}
+          </button>
+        </div>
       </main>
     </div>
   )
