@@ -407,6 +407,67 @@ export default function JournalPage() {
           </div>
         )}
 
+        {/* Journal des mouvements de stock */}
+        {journalStock.filter(m => m.livreur_id === livreurActif).length > 0 && (
+          <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#0A0F1A', borderBottom: '1px solid #1E2535' }}>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600 }}>Heure</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600 }}>Type</th>
+                    {produits.map(p => (
+                      <th key={p.id} style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>{p.nom}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Grouper par created_at (même opération = même timestamp à la seconde)
+                    const grouped: Record<string, any[]> = {}
+                    journalStock.filter(m => m.livreur_id === livreurActif).forEach(m => {
+                      const key = m.created_at.slice(0, 16) + '_' + m.type
+                      if (!grouped[key]) grouped[key] = []
+                      grouped[key].push(m)
+                    })
+                    return Object.entries(grouped).map(([key, mvts]) => {
+                      const isInitial = mvts[0].type === 'initial'
+                      const hasPos = mvts.some(m => m.quantite > 0)
+                      const hasNeg = mvts.some(m => m.quantite < 0)
+                      const color = isInitial ? '#F59E0B' : hasNeg ? '#EF4444' : '#10B981'
+                      const label = isInitial ? 'Initial' : hasNeg && hasPos ? '± Réajust.' : hasNeg ? '▼ Perte' : '▲ Réappro'
+                      return (
+                        <tr key={key} style={{ borderBottom: '1px solid #1E253533', background: isInitial ? '#F59E0B06' : hasNeg ? '#EF444406' : '#10B98106' }}>
+                          <td style={{ padding: '8px 12px', color: '#4B5563', fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {new Date(mvts[0].created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{label}</span>
+                          </td>
+                          {produits.map(p => {
+                            const m = mvts.find(x => x.produit_id === p.id)
+                            const qty = m?.quantite
+                            const c = qty === undefined ? '#1E2535' : qty > 0 ? '#10B981' : qty < 0 ? '#EF4444' : '#4B5563'
+                            return (
+                              <td key={p.id} style={{ padding: '8px 4px', textAlign: 'center' }}>
+                                {qty !== undefined && qty !== 0 ? (
+                                  <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: c }}>
+                                    {qty > 0 && !isInitial ? '+' : ''}{qty}
+                                  </span>
+                                ) : <span style={{ color: '#1E2535' }}>—</span>}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Tableau saisie */}
         <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
           <div style={{ overflowX: 'auto' }}>
