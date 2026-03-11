@@ -398,12 +398,15 @@ export default function JournalPage() {
                 <tbody>
                   {journalStock.filter(m => m.livreur_id === livreurActif).map((m, i) => {
                     const isInitial = m.type === 'initial'
-                    const qtys: Record<string, number> = m.qtys || {}
-                    const vals = Object.values(qtys).map(Number)
+                    const qtys: Record<string, number> = m.qtys
+                      ? (typeof m.qtys === 'string' ? JSON.parse(m.qtys) : m.qtys)
+                      : {}
+                    const vals = Object.values(qtys).map(Number).filter(v => v !== 0)
                     const hasNeg = vals.some(v => v < 0)
                     const hasPos = vals.some(v => v > 0)
                     const color = isInitial ? '#F59E0B' : (hasNeg && !hasPos) ? '#EF4444' : (!hasNeg && hasPos) ? '#10B981' : '#6366F1'
                     const label = isInitial ? 'Initial' : (hasNeg && hasPos) ? '± Réajust.' : hasNeg ? '▼ Perte' : '▲ Réappro'
+                    if (vals.length === 0 && !isInitial) return null
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isInitial ? '#F59E0B06' : hasNeg && !hasPos ? '#EF444406' : '#10B98106' }}>
                         <td style={{ padding: '9px 12px', color: '#4B5563', fontSize: 12, whiteSpace: 'nowrap' }}>
@@ -413,11 +416,11 @@ export default function JournalPage() {
                           <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{label}</span>
                         </td>
                         {produits.map(p => {
-                          const qty = qtys[p.id]
-                          const c = qty === undefined || qty === 0 ? '#1E253566' : qty > 0 ? '#10B981' : '#EF4444'
+                          const qty = Number(qtys[p.id] ?? 0)
+                          const c = qty > 0 ? '#10B981' : qty < 0 ? '#EF4444' : '#1E253566'
                           return (
                             <td key={p.id} style={{ padding: '9px 4px', textAlign: 'center' }}>
-                              {qty && qty !== 0 ? (
+                              {qty !== 0 ? (
                                 <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: c }}>
                                   {isInitial ? qty : (qty > 0 ? '+' : '') + qty}
                                 </span>
@@ -425,7 +428,7 @@ export default function JournalPage() {
                             </td>
                           )
                         })}
-                        <td style={{ padding: '9px 12px', color: '#4B5563', fontSize: 12, fontStyle: m.note ? 'normal' : 'italic' }}>
+                        <td style={{ padding: '9px 12px', color: '#8B95A8', fontSize: 12, fontStyle: m.note ? 'normal' : 'italic' }}>
                           {m.note || '—'}
                         </td>
                       </tr>
