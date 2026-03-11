@@ -342,8 +342,8 @@ export default function JournalPage() {
         </div>
 
         {/* Footer */}
-        <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 24 }}>
+        <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div>
               <span style={{ color: '#8B95A8', fontSize: 12 }}>Ventes</span>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, color: '#10B981' }}>+{totalVentes.toLocaleString()} €</div>
@@ -358,6 +358,23 @@ export default function JournalPage() {
               <span style={{ color: '#8B95A8', fontSize: 12 }}>Net</span>
               <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, color: '#F59E0B' }}>{(totalVentes - totalFrais).toLocaleString()} €</div>
             </div>
+
+            {/* Séparateur */}
+            <div style={{ width: 1, background: '#1E2535', alignSelf: 'stretch' }} />
+
+            {/* Total par boutique */}
+            {boutiques.map(b => {
+              const totalB = lignes
+                .filter(l => l.type === 'vente' && isLigneValide(l) && l.boutique_id === b.id)
+                .reduce((s, l) => s + parseFloat(l.prix), 0)
+              if (totalB === 0) return null
+              return (
+                <div key={b.id}>
+                  <span style={{ fontSize: 12, color: b.couleur }}>{b.nom}</span>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, color: b.couleur }}>{totalB.toLocaleString()} €</div>
+                </div>
+              )
+            })}
           </div>
           <button onClick={saveAll} disabled={saving || lignesValides.length === 0} style={{
             background: lignesValides.length > 0 ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : '#1E2535',
