@@ -127,19 +127,19 @@ export default function JournalPage() {
         }
       }
     }
-    // Enregistrer dans le journal du stock — une ligne par opération
-    const operation_id = crypto.randomUUID()
-    const lignesJournal = produits
-      .map(p => ({ produit_id: p.id, quantite: parseInt(stockAjust[p.id] || '0') || 0 }))
-      .filter(l => stockMode === 'ajust' ? l.quantite !== 0 : l.quantite !== 0)
-    if (lignesJournal.length > 0) {
+    // Enregistrer dans le journal — UNE ligne avec toutes les qtys
+    const qtysMap: Record<string, number> = {}
+    produits.forEach(p => {
+      const val = parseInt(stockAjust[p.id] || '0') || 0
+      if (val !== 0) qtysMap[p.id] = val
+    })
+    if (Object.keys(qtysMap).length > 0) {
       await supabase.from('stocks_journal').insert({
         livreur_id: livreurActif,
-        operation_id,
         type: stockMode,
         date_mouvement: date,
         note: stockNote.trim() || null,
-        qtys: Object.fromEntries(lignesJournal.map(l => [l.produit_id, l.quantite])),
+        qtys: qtysMap,
       })
     }
     await loadStocks(livreurActif, date)
@@ -380,35 +380,34 @@ export default function JournalPage() {
           </div>
         )}
 
-        {/* ── JOURNAL STOCK ── même structure que tableau ventes, au-dessus de la saisie */}
+        {/* JOURNAL STOCK */}
         {journalStock.filter(m => m.livreur_id === livreurActif).length > 0 && (
           <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#0A0F1A', borderBottom: '1px solid #1E2535' }}>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 60 }}>#</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>Heure</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 100 }}>Type</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 110 }}>Type</th>
                     {produits.map(p => (
                       <th key={p.id} style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>{p.nom}</th>
                     ))}
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 160 }}>Commentaire</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 180 }}>Commentaire</th>
                   </tr>
                 </thead>
                 <tbody>
                   {journalStock.filter(m => m.livreur_id === livreurActif).map((m, i) => {
+                    const qtys = m.qtys ? (typeof m.qtys === 'string' ? JSON.parse(m.qtys) : m.qtys) : {}
                     const isInitial = m.type === 'initial'
-                    const qtys: Record<string, number> = m.qtys
-                      ? (typeof m.qtys === 'string' ? JSON.parse(m.qtys) : m.qtys)
-                      : {}
-                    const vals = Object.values(qtys).map(Number).filter(v => v !== 0)
+                    const vals = Object.values(qtys).map(Number)
                     const hasNeg = vals.some(v => v < 0)
                     const hasPos = vals.some(v => v > 0)
-                    const color = isInitial ? '#F59E0B' : (hasNeg && !hasPos) ? '#EF4444' : (!hasNeg && hasPos) ? '#10B981' : '#6366F1'
+                    const color = isInitial ? '#F59E0B' : (hasNeg && hasPos) ? '#6366F1' : hasNeg ? '#EF4444' : '#10B981'
                     const label = isInitial ? 'Initial' : (hasNeg && hasPos) ? '± Réajust.' : hasNeg ? '▼ Perte' : '▲ Réappro'
-                    if (vals.length === 0 && !isInitial) return null
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isInitial ? '#F59E0B06' : hasNeg && !hasPos ? '#EF444406' : '#10B98106' }}>
+                        <td style={{ padding: '9px 12px', color: '#4B5563', fontSize: 12 }}>{i + 1}</td>
                         <td style={{ padding: '9px 12px', color: '#4B5563', fontSize: 12, whiteSpace: 'nowrap' }}>
                           {new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </td>
@@ -417,14 +416,12 @@ export default function JournalPage() {
                         </td>
                         {produits.map(p => {
                           const qty = Number(qtys[p.id] ?? 0)
-                          const c = qty > 0 ? '#10B981' : qty < 0 ? '#EF4444' : '#1E253566'
+                          const c = qty > 0 ? '#10B981' : qty < 0 ? '#EF4444' : '#4B5563'
                           return (
                             <td key={p.id} style={{ padding: '9px 4px', textAlign: 'center' }}>
-                              {qty !== 0 ? (
-                                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: c }}>
-                                  {isInitial ? qty : (qty > 0 ? '+' : '') + qty}
-                                </span>
-                              ) : <span style={{ color: '#1E253566' }}>—</span>}
+                              {qty !== 0
+                                ? <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: c }}>{isInitial ? qty : (qty > 0 ? '+' : '') + qty}</span>
+                                : <span style={{ color: '#1E253566' }}>—</span>}
                             </td>
                           )
                         })}
@@ -440,7 +437,7 @@ export default function JournalPage() {
           </div>
         )}
 
-        {/* Tableau saisie */}
+                {/* Tableau saisie */}
         <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
