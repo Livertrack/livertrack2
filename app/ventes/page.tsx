@@ -107,7 +107,7 @@ export default function JournalPage() {
       if (ligne.type === 'frais') {
         await supabase.from('frais').insert({
           livreur_id: livreurActif,
-          description: 'Frais',
+          description: ligne.client.trim() || 'Frais',
           montant: parseFloat(ligne.prix),
           date_frais: date,
         })
@@ -227,7 +227,7 @@ export default function JournalPage() {
                 <tr style={{ background: '#0A0F1A', borderBottom: '1px solid #1E2535' }}>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 28 }}>#</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 80 }}>Type</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 130 }}>Client</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 130 }}>Libellé</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 160 }}>Boutique</th>
                   {produits.map(p => (
                     <th key={p.id} style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>{p.nom}</th>
@@ -254,9 +254,9 @@ export default function JournalPage() {
                         }}>{isFrais ? 'Frais' : 'Vente'}</span>
                       </td>
 
-                      {/* Client (masqué pour frais) */}
+                      
                       <td style={{ padding: '4px 6px' }}>
-                        {!isFrais && (
+                        
                           <input value={ligne.client} onChange={e => updateField(i, 'client', e.target.value)}
                             placeholder="Nom client" style={inputStyle} />
                         )}
@@ -264,7 +264,7 @@ export default function JournalPage() {
 
                       {/* Boutique (masquée pour frais) */}
                       <td style={{ padding: '4px 6px' }}>
-                        {!isFrais && (
+                        
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {boutiques.map(b => {
                               const sel = ligne.boutique_id === b.id
@@ -287,7 +287,7 @@ export default function JournalPage() {
                         const hasQty = parseInt(qty) > 0
                         return (
                           <td key={p.id} style={{ padding: '4px 4px', textAlign: 'center' }}>
-                            {!isFrais && (
+                            
                               <input type="number" min="0" value={qty}
                                 onChange={e => updateQty(i, p.id, e.target.value)}
                                 placeholder="—"
