@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import type { Livreur, Produit, Boutique } from '@/lib/types'
 
-type LigneType = 'vente' | 'frais'
+type LigneType = 'vente' | 'frais' | 'stock'
 type Ligne = {
   type: LigneType
   client: string
@@ -19,6 +19,9 @@ function emptyVente(boutique_id: string, produits: Produit[]): Ligne {
 }
 function emptyFrais(boutique_id: string, produits: Produit[]): Ligne {
   return { type: 'frais', client: '', boutique_id, qtys: Object.fromEntries(produits.map(p => [p.id, ''])), prix: '' }
+}
+function emptyStock(boutique_id: string, produits: Produit[]): Ligne {
+  return { type: 'stock', client: '', boutique_id, qtys: Object.fromEntries(produits.map(p => [p.id, ''])), prix: '' }
 }
 
 export default function JournalPage() {
@@ -107,6 +110,7 @@ export default function JournalPage() {
 
   function isLigneValide(l: Ligne) {
     if (l.type === 'frais') return parseFloat(l.prix) > 0
+    if (l.type === 'stock') return Object.values(l.qtys).some(q => q !== '' && q !== '0' && !isNaN(parseInt(q)))
     return l.client.trim() && hasProducts(l) && parseFloat(l.prix) > 0
   }
 
@@ -119,14 +123,30 @@ export default function JournalPage() {
     setSaving(true)
 
     for (const ligne of lignesValides) {
-      if (ligne.type === 'frais') {
+      if (ligne.type === 'stock') {
+        // Ajustement stock
+        for (const p of produits) {
+          const delta = parseInt(ligne.qtys[p.id] || '0') || 0
+          if (delta === 0) continue
+          const stock = stocks.find(s => s.produit_id === p.id)
+          if (stock) {
+            const newQty = Math.max(0, stock.quantite_actuelle + delta)
+            const newDepart = Math.max(0, stock.quantite_depart + delta)
+            await supabase.from('stocks').update({ quantite_actuelle: newQty, quantite_depart: newDepart }).eq('id', stock.id)
+            setStocks(prev => prev.map(s => s.id === stock.id ? { ...s, quantite_actuelle: newQty, quantite_depart: newDepart } : s))
+          } else if (delta > 0) {
+            await supabase.from('stocks').insert({ livreur_id: livreurActif, produit_id: p.id, quantite_depart: delta, quantite_actuelle: delta, date_depart: date })
+            await loadStocks(livreurActif, produits, date)
+          }
+        }
+      } else if (ligne.type === 'frais') {
         await supabase.from('frais').insert({
           livreur_id: livreurActif,
           description: ligne.client.trim() || 'Frais',
           montant: parseFloat(ligne.prix),
           date_frais: date,
         })
-      } else {
+      } else if (ligne.type === 'vente') {
         const montant = parseFloat(ligne.prix)
         const { data: vente } = await supabase.from('ventes').insert({
           livreur_id: livreurActif,
@@ -325,6 +345,7 @@ export default function JournalPage() {
               <tbody>
                 {lignes.map((ligne, i) => {
                   const isFrais = ligne.type === 'frais'
+                  const isStock = ligne.type === 'stock'
                   const isValide = isLigneValide(ligne)
                   return (
                     <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isFrais ? '#EF444408' : isValide ? '#10B98108' : 'transparent' }}>
@@ -334,10 +355,10 @@ export default function JournalPage() {
                       <td style={{ padding: '4px 6px' }}>
                         <span style={{
                           fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
-                          background: isFrais ? '#EF444422' : '#10B98122',
-                          color: isFrais ? '#EF4444' : '#10B981',
-                          border: `1px solid ${isFrais ? '#EF444444' : '#10B98144'}`,
-                        }}>{isFrais ? 'Frais' : 'Vente'}</span>
+                          background: isStock ? '#6366F122' : isFrais ? '#EF444422' : '#10B98122',
+                          color: isStock ? '#6366F1' : isFrais ? '#EF4444' : '#10B981',
+                          border: `1px solid ${isStock ? '#6366F144' : isFrais ? '#EF444444' : '#10B98144'}`,
+                        }}>{isStock ? '📦 Stock' : isFrais ? 'Frais' : 'Vente'}</span>
                       </td>
 
                       <td style={{ padding: '4px 6px' }}>
@@ -371,7 +392,20 @@ export default function JournalPage() {
                         const hasQty = parseInt(qty) > 0
                         return (
                           <td key={p.id} style={{ padding: '4px 4px', textAlign: 'center' }}>
-                            {!isFrais && (
+                            {isStock ? (
+                              <input type="number" value={qty}
+                                onChange={e => updateQty(i, p.id, e.target.value)}
+                                placeholder="0"
+                                style={{
+                                  width: 60, textAlign: 'center',
+                                  background: parseInt(qty) > 0 ? '#10B98122' : parseInt(qty) < 0 ? '#EF444422' : '#0D1117',
+                                  border: `1px solid ${parseInt(qty) > 0 ? '#10B98155' : parseInt(qty) < 0 ? '#EF444455' : '#1E2535'}`,
+                                  color: parseInt(qty) > 0 ? '#10B981' : parseInt(qty) < 0 ? '#EF4444' : '#4B5563',
+                                  fontSize: 14, fontWeight: qty !== '' ? 700 : 400,
+                                  padding: '7px 4px', outline: 'none', borderRadius: 8,
+                                  fontFamily: "'Syne', sans-serif",
+                                }} />
+                            ) : !isFrais ? (
                               <input type="number" min="0" value={qty}
                                 onChange={e => updateQty(i, p.id, e.target.value)}
                                 placeholder="—"
@@ -384,14 +418,14 @@ export default function JournalPage() {
                                   padding: '7px 4px', outline: 'none', borderRadius: 8,
                                   fontFamily: "'Syne', sans-serif",
                                 }} />
-                            )}
+                            ) : null}
                           </td>
                         )
                       })}
 
                       {/* Prix */}
                       <td style={{ padding: '4px 6px' }}>
-                        <input type="number" min="0" step="0.01" value={ligne.prix}
+                        {!isStock && <input type="number" min="0" step="0.01" value={ligne.prix}
                           onChange={e => updateField(i, 'prix', e.target.value)}
                           placeholder="0.00"
                           style={{
@@ -399,7 +433,7 @@ export default function JournalPage() {
                             fontFamily: "'Syne', sans-serif", fontWeight: 700,
                             color: parseFloat(ligne.prix) > 0 ? (isFrais ? '#EF4444' : '#F59E0B') : '#4B5563',
                             border: `1px solid ${parseFloat(ligne.prix) > 0 ? (isFrais ? '#EF444455' : '#F59E0B55') : '#1E2535'}`,
-                          }} />
+                          }} />}
                       </td>
 
                       {/* Supprimer */}
@@ -423,6 +457,10 @@ export default function JournalPage() {
             <button onClick={() => addLigne('frais')}
               style={{ background: '#EF444411', border: '1px solid #EF444433', borderRadius: 8, padding: '7px 16px', color: '#EF4444', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               − Frais
+            </button>
+            <button onClick={() => setLignes(prev => [...prev, emptyStock(boutiques[0]?.id || '', produits)])}
+              style={{ background: '#6366F111', border: '1px solid #6366F133', borderRadius: 8, padding: '7px 16px', color: '#6366F1', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              📦 Ajuster stock
             </button>
           </div>
         </div>
