@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 
 const navItems = [
   { id: '/', label: 'Tableau de bord', icon: '▦' },
-  { id: '/ventes', label: 'Saisie ventes', icon: '+' },
+  { id: '/ventes', label: 'Journal du jour', icon: '+' },
   { id: '/stocks', label: 'Stocks', icon: '◻' },
   { id: '/historique', label: 'Historique', icon: '⏱' },
   { id: '/stats', label: 'Statistiques', icon: '↑' },
