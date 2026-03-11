@@ -41,6 +41,7 @@ export default function JournalPage() {
   const [stockAjust, setStockAjust] = useState<Record<string, string>>({})
   const [savingStock, setSavingStock] = useState(false)
   const [stockMode, setStockMode] = useState<'initial' | 'ajust'>('initial')
+  const [stockNote, setStockNote] = useState('')
   const [journalStock, setJournalStock] = useState<any[]>([])
 
   async function loadStocks(livId: string, d: string) {
@@ -126,22 +127,25 @@ export default function JournalPage() {
         }
       }
     }
-    // Enregistrer dans le journal du stock
-    for (const p of produits) {
-      const val = parseInt(stockAjust[p.id] || '0') || 0
-      if (val === 0 && stockMode === 'ajust') continue
-      if (val === 0 && stockMode === 'initial') continue
+    // Enregistrer dans le journal du stock — une ligne par opération
+    const operation_id = crypto.randomUUID()
+    const lignesJournal = produits
+      .map(p => ({ produit_id: p.id, quantite: parseInt(stockAjust[p.id] || '0') || 0 }))
+      .filter(l => stockMode === 'ajust' ? l.quantite !== 0 : l.quantite !== 0)
+    if (lignesJournal.length > 0) {
       await supabase.from('stocks_journal').insert({
         livreur_id: livreurActif,
-        produit_id: p.id,
-        quantite: val,
+        operation_id,
         type: stockMode,
         date_mouvement: date,
+        note: stockNote.trim() || null,
+        qtys: Object.fromEntries(lignesJournal.map(l => [l.produit_id, l.quantite])),
       })
     }
     await loadStocks(livreurActif, date)
     await loadJournalStock(livreurActif)
     setStockAjust(Object.fromEntries(produits.map(p => [p.id, ''])))
+    setStockNote('')
     setSavingStock(false)
     setStockOpen(false)
     setSuccess(stockMode === 'initial' ? 'Stock initial défini !' : 'Stock ajusté !')
@@ -303,9 +307,17 @@ export default function JournalPage() {
                 })}
               </div>
 
-              <button onClick={saveStock} disabled={savingStock} style={{ background: stockMode === 'initial' ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : 'linear-gradient(135deg, #6366F1, #10B981)', border: 'none', borderRadius: 12, padding: '11px 24px', color: '#fff', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
-                {savingStock ? 'Sauvegarde...' : stockMode === 'initial' ? '✓ Valider stock initial' : '✓ Appliquer réajustement'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <input
+                  value={stockNote}
+                  onChange={e => setStockNote(e.target.value)}
+                  placeholder="Commentaire (ex: retour client, livraison reçue...)"
+                  style={{ flex: 1, minWidth: 260, background: '#0D1117', border: '1px solid #1E2535', borderRadius: 10, padding: '11px 14px', color: '#F1F5F9', fontSize: 13, outline: 'none', fontFamily: "'DM Sans', sans-serif" }}
+                />
+                <button onClick={saveStock} disabled={savingStock} style={{ background: stockMode === 'initial' ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : 'linear-gradient(135deg, #6366F1, #10B981)', border: 'none', borderRadius: 12, padding: '11px 24px', color: '#fff', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {savingStock ? 'Sauvegarde...' : stockMode === 'initial' ? '✓ Valider stock initial' : '✓ Appliquer réajustement'}
+                </button>
+              </div>
 
             </div>
           )}
@@ -380,16 +392,20 @@ export default function JournalPage() {
                     {produits.map(p => (
                       <th key={p.id} style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>{p.nom}</th>
                     ))}
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 160 }}>Commentaire</th>
                   </tr>
                 </thead>
                 <tbody>
                   {journalStock.filter(m => m.livreur_id === livreurActif).map((m, i) => {
                     const isInitial = m.type === 'initial'
-                    const isPos = m.quantite > 0
-                    const color = isInitial ? '#F59E0B' : isPos ? '#10B981' : '#EF4444'
-                    const label = isInitial ? 'Initial' : isPos ? '▲ Réappro' : '▼ Perte'
+                    const qtys: Record<string, number> = m.qtys || {}
+                    const vals = Object.values(qtys).map(Number)
+                    const hasNeg = vals.some(v => v < 0)
+                    const hasPos = vals.some(v => v > 0)
+                    const color = isInitial ? '#F59E0B' : (hasNeg && !hasPos) ? '#EF4444' : (!hasNeg && hasPos) ? '#10B981' : '#6366F1'
+                    const label = isInitial ? 'Initial' : (hasNeg && hasPos) ? '± Réajust.' : hasNeg ? '▼ Perte' : '▲ Réappro'
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isInitial ? '#F59E0B06' : isPos ? '#10B98106' : '#EF444406' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isInitial ? '#F59E0B06' : hasNeg && !hasPos ? '#EF444406' : '#10B98106' }}>
                         <td style={{ padding: '9px 12px', color: '#4B5563', fontSize: 12, whiteSpace: 'nowrap' }}>
                           {new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </td>
@@ -397,18 +413,21 @@ export default function JournalPage() {
                           <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{label}</span>
                         </td>
                         {produits.map(p => {
-                          const isThisProduit = m.produit_id === p.id
-                          const qty = m.quantite
+                          const qty = qtys[p.id]
+                          const c = qty === undefined || qty === 0 ? '#1E253566' : qty > 0 ? '#10B981' : '#EF4444'
                           return (
                             <td key={p.id} style={{ padding: '9px 4px', textAlign: 'center' }}>
-                              {isThisProduit ? (
-                                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color }}>
-                                  {isInitial ? qty : (isPos ? '+' : '') + qty}
+                              {qty && qty !== 0 ? (
+                                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: c }}>
+                                  {isInitial ? qty : (qty > 0 ? '+' : '') + qty}
                                 </span>
                               ) : <span style={{ color: '#1E253566' }}>—</span>}
                             </td>
                           )
                         })}
+                        <td style={{ padding: '9px 12px', color: '#4B5563', fontSize: 12, fontStyle: m.note ? 'normal' : 'italic' }}>
+                          {m.note || '—'}
+                        </td>
                       </tr>
                     )
                   })}
