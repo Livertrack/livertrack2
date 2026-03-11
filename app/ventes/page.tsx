@@ -254,17 +254,15 @@ export default function JournalPage() {
                         }}>{isFrais ? 'Frais' : 'Vente'}</span>
                       </td>
 
-                      
                       <td style={{ padding: '4px 6px' }}>
-                        
-                          <input value={ligne.client} onChange={e => updateField(i, 'client', e.target.value)}
-                            placeholder="Nom client" style={inputStyle} />
-                        )}
+                        <input value={ligne.client} onChange={e => updateField(i, 'client', e.target.value)}
+                          placeholder={isFrais ? "Ex: Essence, Péage..." : "Nom client"}
+                          style={inputStyle} />
                       </td>
 
                       {/* Boutique (masquée pour frais) */}
                       <td style={{ padding: '4px 6px' }}>
-                        
+                        {!isFrais && (
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {boutiques.map(b => {
                               const sel = ligne.boutique_id === b.id
@@ -287,7 +285,7 @@ export default function JournalPage() {
                         const hasQty = parseInt(qty) > 0
                         return (
                           <td key={p.id} style={{ padding: '4px 4px', textAlign: 'center' }}>
-                            
+                            {!isFrais && (
                               <input type="number" min="0" value={qty}
                                 onChange={e => updateQty(i, p.id, e.target.value)}
                                 placeholder="—"
