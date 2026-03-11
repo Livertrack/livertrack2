@@ -307,45 +307,6 @@ export default function JournalPage() {
                 {savingStock ? 'Sauvegarde...' : stockMode === 'initial' ? '✓ Valider stock initial' : '✓ Appliquer réajustement'}
               </button>
 
-              {/* Journal des mouvements */}
-              {journalStock.length > 0 && (
-                <div style={{ marginTop: 24, borderTop: '1px solid #1E2535', paddingTop: 18 }}>
-                  <div style={{ fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Journal des mouvements</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #1E2535' }}>
-                        {['Date', 'Heure', 'Type', 'Produit', 'Qté'].map(h => (
-                          <th key={h} style={{ padding: '5px 10px', textAlign: 'left', color: '#4B5563', fontSize: 10, textTransform: 'uppercase', fontWeight: 600 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {journalStock
-                        .filter(m => m.livreur_id === livreurActif)
-                        .map((m, i) => {
-                          const isInitial = m.type === 'initial'
-                          const isPositif = m.quantite > 0
-                          const color = isInitial ? '#F59E0B' : isPositif ? '#10B981' : '#EF4444'
-                          return (
-                            <tr key={i} style={{ borderBottom: '1px solid #1E253522' }}>
-                              <td style={{ padding: '7px 10px', color: '#4B5563', whiteSpace: 'nowrap' }}>{new Date(m.date_mouvement).toLocaleDateString('fr-FR')}</td>
-                              <td style={{ padding: '7px 10px', color: '#4B5563', whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
-                              <td style={{ padding: '7px 10px' }}>
-                                <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 5, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
-                                  {isInitial ? 'Initial' : isPositif ? '▲ Réappro' : '▼ Perte'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '7px 10px', color: '#CBD5E1' }}>{m.produit?.nom}</td>
-                              <td style={{ padding: '7px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color }}>
-                                {isInitial ? m.quantite : (isPositif ? '+' : '') + m.quantite}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -407,61 +368,50 @@ export default function JournalPage() {
           </div>
         )}
 
-        {/* Journal des mouvements de stock */}
+        {/* ── JOURNAL STOCK ── même structure que tableau ventes, au-dessus de la saisie */}
         {journalStock.filter(m => m.livreur_id === livreurActif).length > 0 && (
           <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#0A0F1A', borderBottom: '1px solid #1E2535' }}>
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600 }}>Heure</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600 }}>Type</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>Heure</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 100 }}>Type</th>
                     {produits.map(p => (
                       <th key={p.id} style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>{p.nom}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {(() => {
-                    // Grouper par created_at (même opération = même timestamp à la seconde)
-                    const grouped: Record<string, any[]> = {}
-                    journalStock.filter(m => m.livreur_id === livreurActif).forEach(m => {
-                      const key = m.created_at.slice(0, 16) + '_' + m.type
-                      if (!grouped[key]) grouped[key] = []
-                      grouped[key].push(m)
-                    })
-                    return Object.entries(grouped).map(([key, mvts]) => {
-                      const isInitial = mvts[0].type === 'initial'
-                      const hasPos = mvts.some(m => m.quantite > 0)
-                      const hasNeg = mvts.some(m => m.quantite < 0)
-                      const color = isInitial ? '#F59E0B' : hasNeg ? '#EF4444' : '#10B981'
-                      const label = isInitial ? 'Initial' : hasNeg && hasPos ? '± Réajust.' : hasNeg ? '▼ Perte' : '▲ Réappro'
-                      return (
-                        <tr key={key} style={{ borderBottom: '1px solid #1E253533', background: isInitial ? '#F59E0B06' : hasNeg ? '#EF444406' : '#10B98106' }}>
-                          <td style={{ padding: '8px 12px', color: '#4B5563', fontSize: 12, whiteSpace: 'nowrap' }}>
-                            {new Date(mvts[0].created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td style={{ padding: '8px 12px' }}>
-                            <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{label}</span>
-                          </td>
-                          {produits.map(p => {
-                            const m = mvts.find(x => x.produit_id === p.id)
-                            const qty = m?.quantite
-                            const c = qty === undefined ? '#1E2535' : qty > 0 ? '#10B981' : qty < 0 ? '#EF4444' : '#4B5563'
-                            return (
-                              <td key={p.id} style={{ padding: '8px 4px', textAlign: 'center' }}>
-                                {qty !== undefined && qty !== 0 ? (
-                                  <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: c }}>
-                                    {qty > 0 && !isInitial ? '+' : ''}{qty}
-                                  </span>
-                                ) : <span style={{ color: '#1E2535' }}>—</span>}
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      )
-                    })
-                  })()}
+                  {journalStock.filter(m => m.livreur_id === livreurActif).map((m, i) => {
+                    const isInitial = m.type === 'initial'
+                    const isPos = m.quantite > 0
+                    const color = isInitial ? '#F59E0B' : isPos ? '#10B981' : '#EF4444'
+                    const label = isInitial ? 'Initial' : isPos ? '▲ Réappro' : '▼ Perte'
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isInitial ? '#F59E0B06' : isPos ? '#10B98106' : '#EF444406' }}>
+                        <td style={{ padding: '9px 12px', color: '#4B5563', fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td style={{ padding: '9px 12px' }}>
+                          <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{label}</span>
+                        </td>
+                        {produits.map(p => {
+                          const isThisProduit = m.produit_id === p.id
+                          const qty = m.quantite
+                          return (
+                            <td key={p.id} style={{ padding: '9px 4px', textAlign: 'center' }}>
+                              {isThisProduit ? (
+                                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color }}>
+                                  {isInitial ? qty : (isPos ? '+' : '') + qty}
+                                </span>
+                              ) : <span style={{ color: '#1E253566' }}>—</span>}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
