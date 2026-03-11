@@ -115,6 +115,19 @@ export default function JournalPage() {
         }
       }
     }
+    // Enregistrer dans le journal du stock
+    for (const p of produits) {
+      const val = parseInt(stockAjust[p.id] || '0') || 0
+      if (val === 0 && stockMode === 'ajust') continue
+      if (val === 0 && stockMode === 'initial') continue
+      await supabase.from('stocks_journal').insert({
+        livreur_id: livreurActif,
+        produit_id: p.id,
+        quantite: val,
+        type: stockMode,
+        date_mouvement: date,
+      })
+    }
     await loadStocks(livreurActif, date)
     setStockAjust(Object.fromEntries(produits.map(p => [p.id, ''])))
     setSavingStock(false)
@@ -270,15 +283,9 @@ export default function JournalPage() {
                       {stockMode === 'ajust' && s && val !== '' && delta !== 0 && (
                         <div style={{ fontSize: 10, color: '#4B5563', marginBottom: 6 }}>{s.quantite_actuelle} → <span style={{ color }}>{Math.max(0, s.quantite_actuelle + delta)}</span></div>
                       )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <button onClick={() => setStockAjust(prev => ({ ...prev, [p.id]: String((parseInt(prev[p.id]) || 0) - 1) }))}
-                          style={{ width: 28, height: 28, background: '#EF444422', border: '1px solid #EF444433', borderRadius: 7, color: '#EF4444', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                        <input type="number" value={val} onChange={e => setStockAjust(prev => ({ ...prev, [p.id]: e.target.value }))}
-                          placeholder="0"
-                          style={{ flex: 1, textAlign: 'center', background: 'transparent', border: 'none', color, fontSize: 18, fontWeight: 700, outline: 'none', fontFamily: "'Syne', sans-serif" }} />
-                        <button onClick={() => setStockAjust(prev => ({ ...prev, [p.id]: String((parseInt(prev[p.id]) || 0) + 1) }))}
-                          style={{ width: 28, height: 28, background: '#10B98122', border: '1px solid #10B98133', borderRadius: 7, color: '#10B981', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                      </div>
+                      <input type="number" value={val} onChange={e => setStockAjust(prev => ({ ...prev, [p.id]: e.target.value }))}
+                        placeholder={stockMode === 'ajust' ? "+5 ou -3" : "0"}
+                        style={{ width: '100%', textAlign: 'center', background: '#0D1117', border: `1px solid ${val !== '' && val !== '0' ? color + '66' : '#1E2535'}`, borderRadius: 8, color, fontSize: 18, fontWeight: 700, outline: 'none', fontFamily: "'Syne', sans-serif", padding: '8px 4px', boxSizing: 'border-box' as const }} />
                     </div>
                   )
                 })}
