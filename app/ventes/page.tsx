@@ -99,6 +99,50 @@ export default function JournalPage() {
     await Promise.all([loadStocks(id, date), loadVentesJour(id, date), loadJournalStock(id)])
   }
 
+  async function deleteJournalStock(id: string, qtys: Record<string, number>, type: string) {
+    if (!confirm('Annuler ce mouvement de stock ?')) return
+    // Inverser l'effet sur les stocks
+    for (const p of produits) {
+      const qty = Number(qtys[p.id] ?? 0)
+      if (qty === 0) continue
+      const stock = stocks.find(s => s.produit_id === p.id)
+      if (stock) {
+        const inverse = type === 'initial' ? 0 : stock.quantite_actuelle - qty
+        if (type === 'initial') {
+          await supabase.from('stocks').update({ quantite_actuelle: 0, quantite_depart: 0 }).eq('id', stock.id)
+        } else {
+          const newQty = Math.max(0, stock.quantite_actuelle - qty)
+          const newDepart = Math.max(0, stock.quantite_depart - qty)
+          await supabase.from('stocks').update({ quantite_actuelle: newQty, quantite_depart: newDepart }).eq('id', stock.id)
+        }
+      }
+    }
+    await supabase.from('stocks_journal').delete().eq('id', id)
+    await loadStocks(livreurActif, date)
+    await loadJournalStock(livreurActif)
+  }
+
+  async function deleteVente(venteId: string, lignes: any[]) {
+    if (!confirm('Annuler cette vente ? Le stock sera restauré.')) return
+    // Restaurer le stock
+    for (const vl of lignes) {
+      const stock = stocks.find(s => s.produit_id === vl.produit_id)
+      if (stock) {
+        await supabase.from('stocks').update({ quantite_actuelle: stock.quantite_actuelle + vl.quantite }).eq('id', stock.id)
+      }
+    }
+    await supabase.from('vente_lignes').delete().eq('vente_id', venteId)
+    await supabase.from('ventes').delete().eq('id', venteId)
+    await loadVentesJour(livreurActif, date)
+    await loadStocks(livreurActif, date)
+  }
+
+  async function deleteFrais(fraisId: string) {
+    if (!confirm('Supprimer ce frais ?')) return
+    await supabase.from('frais').delete().eq('id', fraisId)
+    await loadVentesJour(livreurActif, date)
+  }
+
   function getStock(produitId: string) {
     return stocks.find(s => s.produit_id === produitId)
   }
@@ -352,7 +396,7 @@ export default function JournalPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #1E2535' }}>
-                    {['Heure', 'Type', 'Libellé', 'Boutique', 'Produits', 'Montant'].map(h => (
+                    {['Heure', 'Type', 'Libellé', 'Boutique', 'Produits', 'Montant', ''].map(h => (
                       <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#8B95A8', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -372,6 +416,10 @@ export default function JournalPage() {
                         </div>
                       </td>
                       <td style={{ padding: '7px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#F59E0B', whiteSpace: 'nowrap' }}>{v.montant_total.toLocaleString()} €</td>
+                      <td style={{ padding: '7px 8px' }}>
+                        <button onClick={() => deleteVente(v.id, v.vente_lignes || [])}
+                          style={{ background: '#EF444411', border: '1px solid #EF444433', borderRadius: 6, color: '#EF4444', cursor: 'pointer', fontSize: 12, padding: '3px 8px' }}>✕</button>
+                      </td>
                     </tr>
                   ))}
                   {fraisEnregistres.map(f => (
@@ -382,6 +430,10 @@ export default function JournalPage() {
                       <td style={{ padding: '7px 10px', color: '#4B5563' }}>—</td>
                       <td style={{ padding: '7px 10px', color: '#4B5563' }}>—</td>
                       <td style={{ padding: '7px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color: '#EF4444', whiteSpace: 'nowrap' }}>−{f.montant.toLocaleString()} €</td>
+                      <td style={{ padding: '7px 8px' }}>
+                        <button onClick={() => deleteFrais(f.id)}
+                          style={{ background: '#EF444411', border: '1px solid #EF444433', borderRadius: 6, color: '#EF4444', cursor: 'pointer', fontSize: 12, padding: '3px 8px' }}>✕</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -412,6 +464,7 @@ export default function JournalPage() {
                       <th key={p.id} style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>{p.nom}</th>
                     ))}
                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 180 }}>Commentaire</th>
+                    <th style={{ minWidth: 40 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -445,6 +498,10 @@ export default function JournalPage() {
                         })}
                         <td style={{ padding: '9px 12px', color: '#8B95A8', fontSize: 12, fontStyle: m.note ? 'normal' : 'italic' }}>
                           {m.note || '—'}
+                        </td>
+                        <td style={{ padding: '9px 8px', textAlign: 'center' }}>
+                          <button onClick={() => deleteJournalStock(m.id, typeof m.qtys === 'string' ? JSON.parse(m.qtys) : m.qtys, m.type)}
+                            style={{ background: '#EF444411', border: '1px solid #EF444433', borderRadius: 6, color: '#EF4444', cursor: 'pointer', fontSize: 12, padding: '3px 8px' }}>✕</button>
                         </td>
                       </tr>
                     )
