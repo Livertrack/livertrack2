@@ -51,7 +51,7 @@ export default function JournalPage() {
 
   async function loadJournalStock(livId: string) {
     const { data } = await supabase.from('stocks_journal')
-      .select('*, produit:produits(nom)')
+      .select('*')
       .eq('livreur_id', livId)
       .order('created_at', { ascending: false })
       .limit(50)
