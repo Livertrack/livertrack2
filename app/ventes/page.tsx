@@ -41,10 +41,20 @@ export default function JournalPage() {
   const [stockAjust, setStockAjust] = useState<Record<string, string>>({})
   const [savingStock, setSavingStock] = useState(false)
   const [stockMode, setStockMode] = useState<'initial' | 'ajust'>('initial')
+  const [journalStock, setJournalStock] = useState<any[]>([])
 
   async function loadStocks(livId: string, d: string) {
     const { data } = await supabase.from('stocks').select('*').eq('livreur_id', livId).eq('date_depart', d)
     setStocks(data || [])
+  }
+
+  async function loadJournalStock(livId: string) {
+    const { data } = await supabase.from('stocks_journal')
+      .select('*, produit:produits(nom)')
+      .eq('livreur_id', livId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setJournalStock(data || [])
   }
 
   async function loadVentesJour(livId: string, d: string) {
@@ -75,6 +85,7 @@ export default function JournalPage() {
       if (defaultL) {
         await loadStocks(defaultL, today)
         await loadVentesJour(defaultL, today)
+        await loadJournalStock(defaultL)
       }
       setLoading(false)
     }
@@ -84,7 +95,7 @@ export default function JournalPage() {
   async function switchLivreur(id: string) {
     setLivreurActif(id)
     setStockAjust(Object.fromEntries(produits.map(p => [p.id, ''])))
-    await Promise.all([loadStocks(id, date), loadVentesJour(id, date)])
+    await Promise.all([loadStocks(id, date), loadVentesJour(id, date), loadJournalStock(id)])
   }
 
   function getStock(produitId: string) {
@@ -129,6 +140,7 @@ export default function JournalPage() {
       })
     }
     await loadStocks(livreurActif, date)
+    await loadJournalStock(livreurActif)
     setStockAjust(Object.fromEntries(produits.map(p => [p.id, ''])))
     setSavingStock(false)
     setStockOpen(false)
@@ -294,6 +306,46 @@ export default function JournalPage() {
               <button onClick={saveStock} disabled={savingStock} style={{ background: stockMode === 'initial' ? 'linear-gradient(135deg, #F59E0B, #EF4444)' : 'linear-gradient(135deg, #6366F1, #10B981)', border: 'none', borderRadius: 12, padding: '11px 24px', color: '#fff', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
                 {savingStock ? 'Sauvegarde...' : stockMode === 'initial' ? '✓ Valider stock initial' : '✓ Appliquer réajustement'}
               </button>
+
+              {/* Journal des mouvements */}
+              {journalStock.length > 0 && (
+                <div style={{ marginTop: 24, borderTop: '1px solid #1E2535', paddingTop: 18 }}>
+                  <div style={{ fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Journal des mouvements</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #1E2535' }}>
+                        {['Date', 'Heure', 'Type', 'Produit', 'Qté'].map(h => (
+                          <th key={h} style={{ padding: '5px 10px', textAlign: 'left', color: '#4B5563', fontSize: 10, textTransform: 'uppercase', fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {journalStock
+                        .filter(m => m.livreur_id === livreurActif)
+                        .map((m, i) => {
+                          const isInitial = m.type === 'initial'
+                          const isPositif = m.quantite > 0
+                          const color = isInitial ? '#F59E0B' : isPositif ? '#10B981' : '#EF4444'
+                          return (
+                            <tr key={i} style={{ borderBottom: '1px solid #1E253522' }}>
+                              <td style={{ padding: '7px 10px', color: '#4B5563', whiteSpace: 'nowrap' }}>{new Date(m.date_mouvement).toLocaleDateString('fr-FR')}</td>
+                              <td style={{ padding: '7px 10px', color: '#4B5563', whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                              <td style={{ padding: '7px 10px' }}>
+                                <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 5, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
+                                  {isInitial ? 'Initial' : isPositif ? '▲ Réappro' : '▼ Perte'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '7px 10px', color: '#CBD5E1' }}>{m.produit?.nom}</td>
+                              <td style={{ padding: '7px 10px', fontFamily: "'Syne', sans-serif", fontWeight: 700, color }}>
+                                {isInitial ? m.quantite : (isPositif ? '+' : '') + m.quantite}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
