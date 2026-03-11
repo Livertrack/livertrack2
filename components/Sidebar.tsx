@@ -8,6 +8,7 @@ const navItems = [
   { id: '/stocks', label: 'Stocks', icon: '◻' },
   { id: '/historique', label: 'Historique', icon: '⏱' },
   { id: '/stats', label: 'Statistiques', icon: '↑' },
+  { id: '/parametres', label: 'Paramètres', icon: '⚙' },
 ]
 
 export default function Sidebar() {
