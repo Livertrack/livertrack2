@@ -72,7 +72,7 @@ export default function JournalPage() {
     async function load() {
       const [{ data: l }, { data: p }, { data: b }] = await Promise.all([
         supabase.from('livreurs').select('*').eq('actif', true).order('nom'),
-        supabase.from('produits').select('*').eq('actif', true).order('nom'),
+        supabase.from('produits').select('*').eq('actif', true).order('ordre').order('nom'),
         supabase.from('boutiques').select('*').eq('actif', true),
       ])
       setLivreurs(l || [])
