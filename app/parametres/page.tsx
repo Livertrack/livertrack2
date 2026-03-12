@@ -90,6 +90,72 @@ function Section({
   )
 }
 
+function ProduitsSection({ produits, dragProduit, setDragProduit, reorderProduit, onAdd, onRename, onToggle }: {
+  produits: Item[]
+  dragProduit: string | null
+  setDragProduit: (id: string | null) => void
+  reorderProduit: (dragId: string, dropId: string) => void
+  onAdd: (nom: string) => void
+  onRename: (id: string, nom: string) => void
+  onToggle: (id: string, actif: boolean) => void
+}) {
+  const [newNom, setNewNom] = useState('')
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editNom, setEditNom] = useState('')
+  const inputStyle: React.CSSProperties = { background: '#0D1117', border: '1px solid #1E2535', borderRadius: 10, padding: '9px 12px', color: '#F1F5F9', fontSize: 14, outline: 'none', flex: 1 }
+
+  return (
+    <div style={{ background: '#161B27', border: '1px solid #1E2535', borderRadius: 16, padding: 24, marginBottom: 20 }}>
+      <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span>📦</span> Produits
+      </h2>
+      <p style={{ fontSize: 11, color: '#4B5563', marginBottom: 16 }}>⠿ Glissez pour réordonner</p>
+      <div style={{ marginBottom: 16 }}>
+        {produits.map(item => (
+          <div key={item.id}
+            draggable
+            onDragStart={() => setDragProduit(item.id)}
+            onDragOver={e => e.preventDefault()}
+            onDrop={() => { if (dragProduit && dragProduit !== item.id) reorderProduit(dragProduit, item.id); setDragProduit(null) }}
+            onDragEnd={() => setDragProduit(null)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #1E253533', opacity: dragProduit === item.id ? 0.4 : 1, cursor: 'grab' }}>
+            <span style={{ color: '#4B5563', fontSize: 16, userSelect: 'none', flexShrink: 0 }}>⠿</span>
+            {editId === item.id ? (
+              <>
+                <input value={editNom} onChange={e => setEditNom(e.target.value)} style={{ ...inputStyle, flex: 1 }}
+                  onKeyDown={e => { if (e.key === 'Enter') { onRename(item.id, editNom); setEditId(null) } }} autoFocus />
+                <button onClick={() => { onRename(item.id, editNom); setEditId(null) }}
+                  style={{ background: '#10B98122', border: '1px solid #10B98144', color: '#10B981', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✓</button>
+                <button onClick={() => setEditId(null)}
+                  style={{ background: '#1E2535', border: 'none', color: '#8B95A8', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 13 }}>✕</button>
+              </>
+            ) : (
+              <>
+                <span style={{ flex: 1, fontSize: 14, color: item.actif === false ? '#4B5563' : '#F1F5F9', textDecoration: item.actif === false ? 'line-through' : 'none' }}>{item.nom}</span>
+                {item.actif === false && <span style={{ fontSize: 10, color: '#4B5563', background: '#1E2535', borderRadius: 4, padding: '2px 6px' }}>inactif</span>}
+                <button onClick={() => { setEditId(item.id); setEditNom(item.nom) }}
+                  style={{ background: 'none', border: '1px solid #1E2535', color: '#8B95A8', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>✎</button>
+                <button onClick={() => onToggle(item.id, item.actif !== false)}
+                  style={{ background: item.actif === false ? '#10B98111' : '#EF444411', border: `1px solid ${item.actif === false ? '#10B98133' : '#EF444433'}`, color: item.actif === false ? '#10B981' : '#EF4444', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                  {item.actif === false ? 'Activer' : 'Désactiver'}
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input value={newNom} onChange={e => setNewNom(e.target.value)} placeholder="Nouveau produit"
+          style={inputStyle} onKeyDown={e => { if (e.key === 'Enter' && newNom.trim()) { onAdd(newNom.trim()); setNewNom('') } }} />
+        <button onClick={() => { if (newNom.trim()) { onAdd(newNom.trim()); setNewNom('') } }}
+          style={{ background: 'linear-gradient(135deg, #F59E0B, #EF4444)', border: 'none', borderRadius: 10, padding: '9px 18px', color: '#0D1117', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+          + Ajouter
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function ParametresPage() {
   const [dragProduit, setDragProduit] = useState<string | null>(null)
   const supabase = createClient()
@@ -207,8 +273,16 @@ export default function ParametresPage() {
         <Section title="Boutiques" icon="🏪" items={boutiques}
           onAdd={addBoutique} onRename={renameBoutique} onToggle={toggleBoutique} />
 
-        <Section title="Produits" icon="📦" items={produits}
-          onAdd={addProduit} onRename={renameProduit} onToggle={toggleProduit} />
+        {/* Section Produits avec drag & drop */}
+        <ProduitsSection
+          produits={produits}
+          dragProduit={dragProduit}
+          setDragProduit={setDragProduit}
+          reorderProduit={reorderProduit}
+          onAdd={addProduit}
+          onRename={renameProduit}
+          onToggle={toggleProduit}
+        />
       </main>
     </div>
   )
