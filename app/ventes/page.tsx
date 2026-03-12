@@ -34,6 +34,7 @@ export default function JournalPage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragProduitId, setDragProduitId] = useState<string | null>(null)
   const [ventesEnregistrees, setVentesEnregistrees] = useState<any[]>([])
   const [fraisEnregistres, setFraisEnregistres] = useState<any[]>([])
 
@@ -195,6 +196,19 @@ export default function JournalPage() {
     setStockOpen(false)
     setSuccess(stockMode === 'initial' ? 'Stock initial défini !' : 'Stock ajusté !')
     setTimeout(() => setSuccess(''), 2500)
+  }
+
+  async function reorderProduits(dragId: string, dropId: string) {
+    if (dragId === dropId) return
+    const arr = [...produits]
+    const dragIdx = arr.findIndex(p => p.id === dragId)
+    const dropIdx = arr.findIndex(p => p.id === dropId)
+    const [moved] = arr.splice(dragIdx, 1)
+    arr.splice(dropIdx, 0, moved)
+    setProduits(arr)
+    for (let i = 0; i < arr.length; i++) {
+      await supabase.from('produits').update({ ordre: i + 1 }).eq('id', arr[i].id)
+    }
   }
 
   function navigateCell(rowIndex: number, colKey: string, direction: 'up' | 'down' | 'left' | 'right' | 'Enter') {
@@ -543,7 +557,15 @@ export default function JournalPage() {
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 130 }}>Libellé</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 160 }}>Boutique</th>
                   {produits.map(p => (
-                    <th key={p.id} style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70 }}>{p.nom}</th>
+                    <th key={p.id}
+                      draggable
+                      onDragStart={() => setDragProduitId(p.id)}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={() => { if (dragProduitId) reorderProduits(dragProduitId, p.id); setDragProduitId(null) }}
+                      onDragEnd={() => setDragProduitId(null)}
+                      style={{ padding: '10px 8px', textAlign: 'center', fontSize: 11, color: dragProduitId === p.id ? '#4B5563' : '#6366F1', textTransform: 'uppercase', fontWeight: 600, minWidth: 70, cursor: 'grab', userSelect: 'none', opacity: dragProduitId === p.id ? 0.4 : 1 }}>
+                      {p.nom}
+                    </th>
                   ))}
                   <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 11, color: '#F59E0B', textTransform: 'uppercase', fontWeight: 600, minWidth: 90 }}>Total €</th>
                   <th style={{ minWidth: 28 }}></th>
