@@ -196,7 +196,7 @@ export default function JournalPage() {
     setTimeout(() => setSuccess(''), 2500)
   }
 
-  function navigateCell(rowIndex: number, colKey: string, direction: 'up' | 'down' | 'left' | 'right') {
+  function navigateCell(rowIndex: number, colKey: string, direction: 'up' | 'down' | 'left' | 'right' | 'Enter') {
     const colKeys = ['client', ...produits.map(p => p.id), 'prix']
     const colIdx = colKeys.indexOf(colKey)
     let targetRow = rowIndex
