@@ -33,6 +33,7 @@ export default function JournalPage() {
   const [livreurActif, setLivreurActif] = useState<string>('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [lignes, setLignes] = useState<Ligne[]>([])
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [ventesEnregistrees, setVentesEnregistrees] = useState<any[]>([])
   const [fraisEnregistres, setFraisEnregistres] = useState<any[]>([])
 
@@ -536,6 +537,7 @@ export default function JournalPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr style={{ background: '#0A0F1A', borderBottom: '1px solid #1E2535' }}>
+                  <th style={{ minWidth: 40 }}></th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 28 }}>#</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 80 }}>Type</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8B95A8', textTransform: 'uppercase', fontWeight: 600, minWidth: 130 }}>Libellé</th>
@@ -552,7 +554,25 @@ export default function JournalPage() {
                   const isFrais = ligne.type === 'frais'
                   const isValide = isLigneValide(ligne)
                   return (
-                    <tr key={i} style={{ borderBottom: '1px solid #1E253533', background: isFrais ? '#EF444408' : isValide ? '#10B98108' : 'transparent' }}>
+                    <tr key={i} draggable onDragStart={() => setDragIndex(i)} onDragOver={e => e.preventDefault()} onDrop={() => { if (dragIndex === null || dragIndex === i) return; setLignes(prev => { const arr = [...prev]; const [moved] = arr.splice(dragIndex, 1); arr.splice(i, 0, moved); return arr }); setDragIndex(null) }} onDragEnd={() => setDragIndex(null)} style={{ borderBottom: '1px solid #1E253533', background: isFrais ? '#EF444408' : isValide ? '#10B98108' : 'transparent', opacity: dragIndex === i ? 0.4 : 1, cursor: 'grab' }}>
+                      <td
+                        draggable
+                        onDragStart={() => setDragIndex(i)}
+                        onDragOver={e => { e.preventDefault() }}
+                        onDrop={() => {
+                          if (dragIndex === null || dragIndex === i) return
+                          setLignes(prev => {
+                            const arr = [...prev]
+                            const [moved] = arr.splice(dragIndex, 1)
+                            arr.splice(i, 0, moved)
+                            return arr
+                          })
+                          setDragIndex(null)
+                        }}
+                        onDragEnd={() => setDragIndex(null)}
+                        style={{ padding: '4px 6px', textAlign: 'center', cursor: 'grab', opacity: dragIndex === i ? 0.4 : 1 }}>
+                        <span style={{ color: '#4B5563', fontSize: 16, userSelect: 'none' }}>⠿</span>
+                      </td>
                       <td style={{ padding: '6px 12px', color: '#4B5563', fontSize: 12 }}>{i + 1}</td>
                       <td style={{ padding: '4px 6px' }}>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: isFrais ? '#EF444422' : '#10B98122', color: isFrais ? '#EF4444' : '#10B981', border: `1px solid ${isFrais ? '#EF444444' : '#10B98144'}` }}>
