@@ -81,7 +81,7 @@ export default function JournalPage() {
       const defaultB = b?.[0]?.id || ''
       const today = new Date().toISOString().split('T')[0]
       setLivreurActif(defaultL)
-      setLignes([emptyVente(defaultB, p || []), emptyVente(defaultB, p || []), emptyVente(defaultB, p || [])])
+      setLignes(Array.from({length: 25}, () => emptyVente(defaultB, p || [])))
       setStockAjust(Object.fromEntries((p || []).map(pr => [pr.id, ''])))
       if (defaultL) {
         await loadStocks(defaultL, today)
@@ -232,7 +232,7 @@ export default function JournalPage() {
   }
   function isLigneValide(l: Ligne) {
     if (l.type === 'frais') return parseFloat(l.prix) > 0
-    return l.client.trim() && hasProducts(l) && parseFloat(l.prix) > 0
+    return hasProducts(l) && parseFloat(l.prix) > 0
   }
 
   const lignesValides = lignes.filter(isLigneValide)
@@ -269,7 +269,7 @@ export default function JournalPage() {
     setSuccess(`${lignesValides.length} entrée(s) enregistrée(s) !`)
     setTimeout(() => setSuccess(''), 3000)
     const defaultB = boutiques[0]?.id || ''
-    setLignes([emptyVente(defaultB, produits), emptyVente(defaultB, produits), emptyVente(defaultB, produits)])
+    setLignes(Array.from({length: 25}, () => emptyVente(defaultB, produits)))
   }
 
   const inputStyle: React.CSSProperties = { background: '#0D1117', border: '1px solid #1E2535', color: '#F1F5F9', fontSize: 13, padding: '7px 8px', outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: "'DM Sans', sans-serif", borderRadius: 8 }
