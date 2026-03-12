@@ -196,6 +196,24 @@ export default function JournalPage() {
     setTimeout(() => setSuccess(''), 2500)
   }
 
+  function navigateCell(rowIndex: number, colKey: string, direction: 'up' | 'down' | 'left' | 'right') {
+    const colKeys = ['client', ...produits.map(p => p.id), 'prix']
+    const colIdx = colKeys.indexOf(colKey)
+    let targetRow = rowIndex
+    let targetCol = colIdx
+
+    if (direction === 'down' || direction === 'Enter') targetRow = rowIndex + 1
+    else if (direction === 'up') targetRow = rowIndex - 1
+    else if (direction === 'right') targetCol = colIdx + 1
+    else if (direction === 'left') targetCol = colIdx - 1
+
+    targetRow = Math.max(0, Math.min(targetRow, lignes.length - 1))
+    targetCol = Math.max(0, Math.min(targetCol, colKeys.length - 1))
+    const targetKey = colKeys[targetCol]
+    const el = document.querySelector(`input[data-cell="${targetRow}-${targetKey}"]`) as HTMLInputElement
+    if (el) el.focus()
+  }
+
   function updateField(index: number, field: 'client' | 'boutique_id' | 'prix', value: string) {
     setLignes(prev => prev.map((l, i) => i === index ? { ...l, [field]: value } : l))
   }
@@ -543,7 +561,14 @@ export default function JournalPage() {
                       </td>
                       <td style={{ padding: '4px 6px' }}>
                         <input value={ligne.client} onChange={e => updateField(i, 'client', e.target.value)}
-                          placeholder={isFrais ? "Ex: Essence, Péage..." : "Nom client"} style={inputStyle} />
+                          placeholder={isFrais ? "Ex: Essence, Péage..." : "Nom client"} style={inputStyle}
+                          data-cell={`${i}-client`}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); navigateCell(i, 'client', 'down') }
+                            else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(i, 'client', 'up') }
+                            else if (e.key === 'ArrowRight' && (e.target as HTMLInputElement).selectionStart === (e.target as HTMLInputElement).value.length) { e.preventDefault(); navigateCell(i, 'client', 'right') }
+                            else if (e.key === 'ArrowLeft' && (e.target as HTMLInputElement).selectionStart === 0) { e.preventDefault(); navigateCell(i, 'client', 'left') }
+                          }} />
                       </td>
                       <td style={{ padding: '4px 6px' }}>
                         {!isFrais && (
@@ -562,6 +587,13 @@ export default function JournalPage() {
                           <td key={p.id} style={{ padding: '4px 4px', textAlign: 'center' }}>
                             {!isFrais && (
                               <input type="number" min="0" value={qty} onChange={e => updateQty(i, p.id, e.target.value)} placeholder="—"
+                                data-cell={`${i}-${p.id}`}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); navigateCell(i, p.id, 'down') }
+                                  else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(i, p.id, 'up') }
+                                  else if (e.key === 'ArrowRight') { e.preventDefault(); navigateCell(i, p.id, 'right') }
+                                  else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateCell(i, p.id, 'left') }
+                                }}
                                 style={{ width: 60, textAlign: 'center', background: hasQty ? '#6366F122' : '#0D1117', border: `1px solid ${hasQty ? '#6366F155' : '#1E2535'}`, color: hasQty ? '#818CF8' : '#4B5563', fontSize: 14, fontWeight: hasQty ? 700 : 400, padding: '7px 4px', outline: 'none', borderRadius: 8, fontFamily: "'Syne', sans-serif" }} />
                             )}
                           </td>
@@ -569,6 +601,12 @@ export default function JournalPage() {
                       })}
                       <td style={{ padding: '4px 6px' }}>
                         <input type="number" min="0" step="0.01" value={ligne.prix} onChange={e => updateField(i, 'prix', e.target.value)} placeholder="0.00"
+                          data-cell={`${i}-prix`}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); navigateCell(i, 'prix', 'down') }
+                            else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(i, 'prix', 'up') }
+                            else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateCell(i, 'prix', 'left') }
+                          }}
                           style={{ ...inputStyle, textAlign: 'right', width: 90, fontFamily: "'Syne', sans-serif", fontWeight: 700, color: parseFloat(ligne.prix) > 0 ? (isFrais ? '#EF4444' : '#F59E0B') : '#4B5563', border: `1px solid ${parseFloat(ligne.prix) > 0 ? (isFrais ? '#EF444455' : '#F59E0B55') : '#1E2535'}` }} />
                       </td>
                       <td style={{ padding: '4px 8px' }}>
