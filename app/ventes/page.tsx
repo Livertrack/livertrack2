@@ -60,8 +60,8 @@ export default function JournalPage() {
 
   async function loadVentesJour(livId: string, d: string) {
     const [{ data: v }, { data: f }] = await Promise.all([
-      supabase.from('ventes').select('*, boutique:boutiques(*), vente_lignes(quantite, produit:produits(nom))').eq('livreur_id', livId).eq('date_vente', d).order('created_at', { ascending: false }),
-      supabase.from('frais').select('*').eq('livreur_id', livId).eq('date_frais', d).order('created_at', { ascending: false }),
+      supabase.from('ventes').select('*, boutique:boutiques(*), vente_lignes(quantite, produit:produits(nom))').eq('livreur_id', livId).eq('date_vente', d).order('created_at', { ascending: true }),
+      supabase.from('frais').select('*').eq('livreur_id', livId).eq('date_frais', d).order('created_at', { ascending: true }),
     ])
     setVentesEnregistrees(v || [])
     setFraisEnregistres(f || [])
