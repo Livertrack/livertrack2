@@ -91,6 +91,7 @@ function Section({
 }
 
 export default function ParametresPage() {
+  const [dragProduit, setDragProduit] = useState<string | null>(null)
   const supabase = createClient()
   const [livreurs, setLivreurs] = useState<Item[]>([])
   const [boutiques, setBoutiques] = useState<Item[]>([])
@@ -108,7 +109,7 @@ export default function ParametresPage() {
       const [{ data: l }, { data: b }, { data: p }] = await Promise.all([
         supabase.from('livreurs').select('*').order('nom'),
         supabase.from('boutiques').select('*').order('nom'),
-        supabase.from('produits').select('*').order('nom'),
+        supabase.from('produits').select('*').order('ordre').order('nom'),
       ])
       setLivreurs(l || [])
       setBoutiques(b || [])
@@ -169,6 +170,20 @@ export default function ParametresPage() {
   }
 
   if (loading) return <div style={{ display: 'flex' }}><Sidebar /><main style={{ marginLeft: 240, flex: 1, padding: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#8B95A8' }}>Chargement...</div></main></div>
+
+  async function reorderProduit(dragId: string, dropId: string) {
+    if (dragId === dropId) return
+    const arr = [...produits]
+    const dragIdx = arr.findIndex(p => p.id === dragId)
+    const dropIdx = arr.findIndex(p => p.id === dropId)
+    const [moved] = arr.splice(dragIdx, 1)
+    arr.splice(dropIdx, 0, moved)
+    // Mettre à jour les ordres
+    for (let i = 0; i < arr.length; i++) {
+      await supabase.from('produits').update({ ordre: i + 1 }).eq('id', arr[i].id)
+    }
+    setProduits(arr)
+  }
 
   return (
     <div style={{ display: 'flex' }}>
